@@ -3,7 +3,7 @@ from datetime import datetime
 import requests
 import os.path
 
-
+downloads_path = "mnt/downloads"
 
 def current_date(date):
     months = ("Enero", "Febrero", "Marzo", "Abri", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
@@ -27,6 +27,7 @@ def open_link_file(path):
 def main():
     print("Welcome to Alldebrid miniAPI\n")
     link_file = open_link_file("links.txt")
+    os.chdir(downloads_path)
     lines = link_file.readlines()
     alldebrid = Alldebrid()
 
