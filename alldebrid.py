@@ -4,7 +4,7 @@ class Alldebrid:
     def __init__(self):
         self.base = 'https://api.alldebrid.com/v4'
         self.agent = 'PythonScript'
-        self.key = ''
+        self.key = 'PUT YOUR KEY HERE'
 
     def user_infos(self):
         return requests.get(f'{self.base}/user?agent={self.agent}&apikey={self.key}').json()
