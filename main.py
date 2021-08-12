@@ -1,9 +1,9 @@
-from alldebrid import Alldebrid
+from api.alldebrid import Alldebrid
 from datetime import datetime
-import requests
-import os.path
+from resources.config import AlldebridConfig
+import requests, glob, os, configparser
 
-downloads_path = "mnt/downloads"
+errors = ""
 
 def current_date(date):
     months = ("Enero", "Febrero", "Marzo", "Abri", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
@@ -24,12 +24,20 @@ def obtain_daily_filename(filename):
 def open_link_file(path):
     return open(path, "r")
 
-def main():
+def print_results(lines, errors):
+    print("\nDone! " + str(len(lines) - len(errors)) + " files downloaded.")
+    if (len(errors) > 0):
+        print("Files failed: " + str(len(errors)))
+        for e in errors:
+            print(" * " + e)
+
+def download():
     print("Welcome to Alldebrid miniAPI\n")
-    link_file = open_link_file("links.txt")
+    link_file = open_link_file("resources/links.txt")
     os.chdir(downloads_path)
     lines = link_file.readlines()
     alldebrid = Alldebrid()
+    errors = list()
 
     for line in lines:
         filename, base_url = line.split(",")
@@ -41,7 +49,17 @@ def main():
             print("Saving " + filename + " ...")
             download_file(converted_link, filename)
         else:
-            print("Error with link " + base_url)
-    print("\nDone! " + str(len(lines)) + " files downloaded.")
+            errors.append(filename)
+    print_results(lines,errors)
+
+
+
+def main():
+    download()
+
+# Config zone
+telegram_token = AlldebridConfig.telegram_token
+channel_id = AlldebridConfig.channel_id
+downloads_path = AlldebridConfig.downloads_path
 
 main()

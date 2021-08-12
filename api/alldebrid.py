@@ -1,10 +1,12 @@
+from resources.config import AlldebridAPI
 import requests
+
 
 class Alldebrid:
     def __init__(self):
         self.base = 'https://api.alldebrid.com/v4'
-        self.agent = 'PythonScript'
-        self.key = 'PUT YOUR KEY HERE'
+        self.agent = AlldebridAPI.agent
+        self.key = AlldebridAPI.key
 
     def user_infos(self):
         return requests.get(f'{self.base}/user?agent={self.agent}&apikey={self.key}').json()
