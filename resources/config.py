@@ -4,5 +4,5 @@ class AlldebridConfig(object):
     downloads_path = ''
 
 class AlldebridAPI(object):
-    agent = ''
+    agent = 'AlldebridAPI'
     key = ''

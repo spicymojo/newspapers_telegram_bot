@@ -1,7 +1,8 @@
 from api.alldebrid import Alldebrid
 from datetime import datetime
 from resources.config import AlldebridConfig
-import requests, glob, os, configparser
+
+import requests, os
 
 errors = ""
 
@@ -77,8 +78,6 @@ def clean():
             print("Delete error, some files are still in the folder. Please check")
     else:
         print("No problem! Have a nice day!")
-
-
 
 def main():
     download()
