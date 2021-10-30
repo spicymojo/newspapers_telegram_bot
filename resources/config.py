@@ -1,13 +1,13 @@
 class AlldebridAPI(object):
-    agent = 'AlldebridAPI'
+    agent = ''
     key = ''
     downloads_path = ''
-    files_filter = [""]
+    newspapers_filter = [""]
 
 class TelegramApi(object):
     api_id = ''
     api_hash = ''
-    phone_number = '+'
+    phone_number = ''
     chat_link = ""
     url_domains = [""]
-    messages_limit = 100
+    messages_limit = 200
