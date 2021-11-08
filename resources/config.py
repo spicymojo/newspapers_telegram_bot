@@ -3,11 +3,13 @@ class AlldebridAPI(object):
     key = ''
     downloads_path = ''
     newspapers_filter = [""]
+    interactive_mode = ""
 
 class TelegramApi(object):
     api_id = ''
     api_hash = ''
-    phone_number = ''
-    chat_link = ""
+    phone_number = '+'
+    source_chat = ""
+    destinatary_chat = ""
     url_domains = [""]
-    messages_limit = 200
+    messages_limit = 50

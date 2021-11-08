@@ -6,7 +6,7 @@ from telethon.sync import TelegramClient
 import requests, os
 
 errors = ""
-files = []
+downloaded_files = []
 
 # Telegram
 def start_telegram():
@@ -38,14 +38,14 @@ def tlg_connect(api_id, api_hash, phone_number):
     return client
 
 def isToday(date):
-    return str(datetime.now().day -1) in date
+    return str(datetime.now().day) in date
 
 
 # Get messages data from a chat
 def get_links_from_telegram(client):
     print("Obteniendo links de Telegram...")
     files = []
-    chat_entity = client.get_entity(chat_link)
+    chat_entity = client.get_entity(source_chat)
     # Get and save messages data in a single list
     messages_list = client.get_messages(chat_entity, limit=messages_limit)
     # Build our messages data structures and add them to the list
@@ -81,8 +81,8 @@ def download(files):
                 converted_link = http_response["data"]["link"]
                 print("  Downloading " + filename + " ...")
                 download_file(converted_link, filename)
+                downloaded_files.append(filename)
                 ok = ok + 1
-
             else:
                 errors.append(filename)
     print_results(ok,errors)
@@ -92,7 +92,7 @@ def download(files):
 def current_date(date):
     months = ("Enero", "Febrero", "Marzo", "Abri", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
     day = date.day
-    month = months[date.month]
+    month = months[date.month-1]
     current_date = "{} de {}".format(day, month)
 
     return current_date
@@ -133,23 +133,40 @@ def countPdfFiles():
                 counter = counter + 1
     return counter
 
+def send_files(tg_client):
+    print("\nStart sending files to Telegram...")
+    print(str(len(downloaded_files)) + " files to send")
+
+    for file in downloaded_files:
+        tg_client.send_file(destinatary_chat, file, force_document=True)
+    print("Files sended!\n")
+
 def clean():
-    clean = input("Done! Do you want to clean the downloaded files? (y/n)")
-    if not clean.lower() == "n":
-        print("Okay! Using the Roomba...")
+    if (interactive_mode == True) :
+        clean = input("Done! Do you want to clean the downloaded files? (y/n)")
+        if not clean.lower() == "n":
+            print("Okay! Using the Roomba...")
+            removePdfFiles()
+            if (countPdfFiles() == 0):
+                print("Done! All clean for tomorrow!")
+            else:
+                print("Delete error, some files are still in the folder. Please check")
+        else:
+            print("No problem! Have a nice day!")
+    else:
+        print("Cleaning the files...")
         removePdfFiles()
         if (countPdfFiles() == 0):
             print("Done! All clean for tomorrow!")
         else:
             print("Delete error, some files are still in the folder. Please check")
-    else:
-        print("No problem! Have a nice day!")
 
 
 def main():
     tg_client = start_telegram()
     files = get_links_from_telegram(tg_client)
     download(files)
+    send_files(tg_client)
     clean()
 
 
@@ -157,10 +174,12 @@ def main():
 api_id = TelegramApi.api_id
 api_hash = TelegramApi.api_hash
 phone_number = TelegramApi.phone_number
-chat_link = TelegramApi.chat_link
+source_chat = TelegramApi.source_chat
+destinatary_chat = TelegramApi.destinatary_chat
 url_domains = TelegramApi.url_domains
 messages_limit = TelegramApi.messages_limit
 downloads_path = AlldebridAPI.downloads_path
 newspapers_filter = AlldebridAPI.newspapers_filter
+interactive_mode = AlldebridAPI.interactive_mode
 
 main()
