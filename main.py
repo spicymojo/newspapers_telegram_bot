@@ -40,7 +40,6 @@ def tlg_connect(api_id, api_hash, phone_number):
 def isToday(date):
     return str(datetime.now().day) in date
 
-
 # Get messages data from a chat
 def get_links_from_telegram(client):
     print("Obteniendo links de Telegram...")
@@ -65,7 +64,6 @@ def we_want(filename):
     filename = filename.strip().upper()
     return filename in newspapers_filter
 
-
 def download(files):
     print("\nConnecting to AllDebrid\n")
     alldebrid = Alldebrid()
@@ -86,7 +84,6 @@ def download(files):
             else:
                 errors.append(filename)
     print_results(ok,errors)
-
 
 # Aux
 def current_date(date):
@@ -136,10 +133,18 @@ def countPdfFiles():
 def send_files(tg_client):
     print("\nStart sending files to Telegram...")
     print(str(len(downloaded_files)) + " files to send")
+    sended_files = []
 
+    tg_client.send_message(destinatary_chat, "# " + str(current_date(datetime.now())))
     for file in downloaded_files:
-        tg_client.send_file(destinatary_chat, file, force_document=True)
+        if file not in sended_files:
+            tg_client.send_file(destinatary_chat, file, force_document=True)
+            sended_files.append(file)
     print("Files sended!\n")
+
+def send_message_to_admin(tg_client):
+    newspapers = str(len(downloaded_files))
+    tg_client.send_message(admin_alias,"Hello! Your bot here\n" + newspapers + " newspapers sended to Telegram Group:\n " + str(downloaded_files))
 
 def clean():
     if (interactive_mode == True) :
@@ -167,6 +172,7 @@ def main():
     files = get_links_from_telegram(tg_client)
     download(files)
     send_files(tg_client)
+    send_message_to_admin(tg_client)
     clean()
 
 
@@ -178,6 +184,7 @@ source_chat = TelegramApi.source_chat
 destinatary_chat = TelegramApi.destinatary_chat
 url_domains = TelegramApi.url_domains
 messages_limit = TelegramApi.messages_limit
+admin_alias = TelegramApi.admin_alias
 downloads_path = AlldebridAPI.downloads_path
 newspapers_filter = AlldebridAPI.newspapers_filter
 interactive_mode = AlldebridAPI.interactive_mode
