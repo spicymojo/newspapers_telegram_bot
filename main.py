@@ -52,17 +52,21 @@ def get_links_from_telegram(client):
         if message.message.startswith("#diarios") and isToday(message.message):
             msg = message.message.split("\n")
             msg[0] = msg[0].replace("#diarios ", "").replace("#diarios", "")
-            title, date = msg[0].split("-",1)
-            for url in msg:
-                if url_domains[0] in url:
-                    files.append(title + "," + url)
+            if "-" in msg[0]:
+                title, date = msg[0].split("-",1)
+                for url in msg:
+                    if url_domains[0] in url:
+                        files.append(title + "," + url)
     # Return the messages data list
     print(str(len(files)) + " magazines found")
     return files
 
 def we_want(filename):
     filename = filename.strip().upper()
-    return filename in newspapers_filter
+    for filter in newspapers_filter:
+        if filter in filename:
+            return True
+    return False
 
 def download(files):
     print("\nConnecting to AllDebrid\n")
