@@ -40,6 +40,16 @@ def tlg_connect(api_id, api_hash, phone_number):
 def isToday(date):
     return str(datetime.now().day) in date
 
+def clean_list(files):
+    clean_files = []
+    for f in files:
+        title, url = f.split(",", 1)
+        if f in clean_files and f.startswith(title):  # We only want the newest link
+            clean_files.remove(f)
+        clean_files.append(title + "," + url)
+    print("We're going to download " + str(len(clean_files)) + " newspapers")
+    return clean_files
+
 # Get messages data from a chat
 def get_links_from_telegram(client):
     print("Obteniendo links de Telegram...")
@@ -58,7 +68,7 @@ def get_links_from_telegram(client):
                     if url_domains[0] in url:
                         files.append(title + "," + url)
     # Return the messages data list
-    print(str(len(files)) + " magazines found")
+    print(str(len(files)) + " newspapers found")
     return files
 
 def we_want(filename):
@@ -174,6 +184,7 @@ def clean():
 def main():
     tg_client = start_telegram()
     files = get_links_from_telegram(tg_client)
+    files = clean_list(files)
     download(files)
     send_files(tg_client)
     send_message_to_admin(tg_client)
