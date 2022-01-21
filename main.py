@@ -23,14 +23,10 @@ class Message:
         return self.type
 
     def get_dated_filename(self):
-        if not self.date:
-            self.date = datetime.now()
-        if self.type == "NEWSPAPER":
-            if type(self.date) is not datetime:
-                self.date = datetime.now()
-            return self.filename + "," + self.date.day + " de " + self.date.month
+        if not self.date or self.type == 'NEWSPAPER':
+            return self.filename + ", " + pretty_print_date(datetime.now())
         else:
-            return self.filename + "," + self.date
+            return self.filename + ", " + self.date
 
     def print(self):
         return self.get_message()
@@ -79,7 +75,17 @@ def clean_list(files, sended_newspapers, sended_magazines):
     return clean_files
 
 def get_telegram_messages(client, chat, messages_limit):
-    chat_entity = client.get_entity(chat)
+    try:
+        chat_entity = client.get_entity(chat)
+    except:
+        print("Cannot retrieve chat by link. Searching your chats..")
+        chat_list = client.get_dialogs()
+        for chat in chat_list:
+            if chat.name == source_chat_name:
+                chat_entity = client.get_entity(chat)
+                print("Using chat " + chat.name)
+                break
+
     # Get and save messages data in a single list
     return client.get_messages(chat_entity, limit=messages_limit)
 
@@ -156,14 +162,14 @@ def download(files):
             converted_link = http_response["data"]["link"]
             print("  Downloading " + file.filename + " ...")
             download_file(file)
-            downloaded_files.append(file.filename)
+            downloaded_files.append(file)
             ok = ok + 1
         else:
             errors.append(file.filename)
     print_results(ok,errors)
 
 # Aux
-def current_date(date):
+def pretty_print_date(date):
     months = ("Enero", "Febrero", "Marzo", "Abri", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
     day = date.day
     month = months[date.month-1]
@@ -181,7 +187,7 @@ def download_file(file):
         open(path, "wb").write(requests.get(file.url).content)
 
 def obtain_daily_filename(filename):
-    filename = str(filename + " - " + current_date(datetime.now()) + ".pdf")
+    filename = str(filename + " - " + pretty_print_date(datetime.now()) + ".pdf")
     return filename
 
 def open_link_file(path):
@@ -213,25 +219,30 @@ def send_files(tg_client):
     print(str(len(downloaded_files)) + " files to send")
     sended_files = []
 
-    tg_client.send_message(newspapers_chat, "# " + str(current_date(datetime.now())))
+    tg_client.send_message(newspapers_chat, "# " + str(pretty_print_date(datetime.now())))
     for file in downloaded_files:
-        if file not in sended_files:
-            if file.get_type().equals("NEWSPAPER"):
-                tg_client.send_file(newspapers_chat, file, force_document=True)
-            elif file.get_type().equals("MAGAZINE"):
-                tg_client.send_file(magazines_chat, file, force_document=True)
-            sended_files.append(file)
+        if file.filename not in sended_files:
+            if file.type =="NEWSPAPER":
+               tg_client.send_file(newspapers_chat, file.filename, force_document=True)
+            elif file.type == "MAGAZINE":
+                tg_client.send_file(magazines_chat, file.filename, force_document=True)
+            sended_files.append(file.filename)
     print("Files sended!\n")
 
 def send_message_to_admin(tg_client):
     newspapers = str(len(downloaded_files))
-    tg_client.send_message(admin_alias,"Hello! Your bot here\n" + newspapers + " newspapers sended to Telegram Group:\n " + str(downloaded_files))
+
+    file_list = []
+    for file in downloaded_files:
+        file_list.append(file.filename)
+
+    tg_client.send_message(admin_alias,"Hello! Your bot here\n" + newspapers + " newspapers sended to Telegram Group:\n " + str(file_list))
 
 def clean():
     if (interactive_mode == True) :
         clean = input("Done! Do you want to clean the downloaded files? (y/n)")
         if not clean.lower() == "n":
-            print("Okay! Using the Roomba...")
+            print("Okay! Using the Roomyba...")
             removePdfFiles()
             if (countPdfFiles() == 0):
                 print("Done! All clean for tomorrow!")
@@ -264,6 +275,7 @@ api_id = TelegramApi.api_id
 api_hash = TelegramApi.api_hash
 phone_number = TelegramApi.phone_number
 source_chat = TelegramApi.source_chat
+source_chat_name = TelegramApi.source_chat_name
 newspapers_chat = TelegramApi.newspapers_chat
 magazines_chat = TelegramApi.magazines_chat
 source_chat_limit = TelegramApi.source_chat_limit

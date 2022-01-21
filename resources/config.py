@@ -12,6 +12,7 @@ class TelegramApi(object):
     api_hash = ''
     phone_number = ''
     source_chat = ''
+    source_chat_name = ''
     newspapers_chat = ''
     magazines_chat = ''
     source_chat_limit = 100
