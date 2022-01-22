@@ -1,22 +1,23 @@
-
 class AlldebridAPI(object):
     agent = ''
     key = ''
     downloads_path = ''
-    newspapers_filter = [""]
-    magazines_filter = [""]
-    interactive_mode = "False"
+    newspapers_filter = ['']
+    magazines_filter = ['']
+    interactive_mode = ''
 
 class TelegramApi(object):
     api_id = ''
     api_hash = ''
     phone_number = ''
-    source_chat = ''
+    source_chat_url = ''
     source_chat_name = ''
-    newspapers_chat = ''
-    magazines_chat = ''
-    source_chat_limit = 100
-    newspapers_chat_limit = 10
-    magazines_chat_limit = 20
+    source_chat_limit = 0
+    newspapers_chat_url = ''
+    newspapers_chat_name = ''
+    newspapers_chat_limit = 0
+    magazines_chat_url = ''
+    magazines_chat_name = ''
+    magazines_chat_limit = 0
     admin_alias = ''
     url_domains = ['']

@@ -1,3 +1,7 @@
+from getpass import getpass
+
+from telethon.errors import SessionPasswordNeededError
+
 from api.alldebrid import Alldebrid
 from datetime import datetime
 from resources.config import AlldebridAPI, TelegramApi
@@ -7,6 +11,7 @@ import requests, os
 
 errors = ""
 downloaded_files = []
+chat_list = []
 
 # Class
 class Message:
@@ -75,19 +80,7 @@ def clean_list(files, sended_newspapers, sended_magazines):
     return clean_files
 
 def get_telegram_messages(client, chat, messages_limit):
-    try:
-        chat_entity = client.get_entity(chat)
-    except:
-        print("Cannot retrieve chat by link. Searching your chats..")
-        chat_list = client.get_dialogs()
-        for chat in chat_list:
-            if chat.name == source_chat_name:
-                chat_entity = client.get_entity(chat)
-                print("Using chat " + chat.name)
-                break
-
-    # Get and save messages data in a single list
-    return client.get_messages(chat_entity, limit=messages_limit)
+    return client.get_messages(chat, limit=messages_limit)
 
 def get_formatted_message(msg, key):
     return msg[0].replace(key, "")
@@ -109,9 +102,10 @@ def build_message(msg, type, formatted_msg):
             return Message(type, title, url, date)
 
 # Get messages data from a chat
-def get_links_from_telegram(client):
-    print("Obteniendo links de Telegram...")
+def get_links_from_telegram(client, source_chat):
+    print("Getting links from Telegram...")
     files = []
+
     messages_list = get_telegram_messages(client, source_chat, source_chat_limit)
 
     for message in messages_list:
@@ -128,10 +122,10 @@ def get_links_from_telegram(client):
     print(str(len(files)) + " newspapers and magazines found")
     return files
 
-def get_sended_files(client):
-    print("Obteniendo archivos ya enviados...")
+def get_sended_files(client, newspapers_chat,magazines_chat):
+    print("Obtaining already sended files...")
     telegram_sended_newspapers = get_telegram_messages(client, newspapers_chat, newspapers_chat_limit)
-    telegram_sended_magazines = get_telegram_messages(client, magazines_chat,magazines_chat_limit)
+    telegram_sended_magazines = get_telegram_messages(client, magazines_chat, magazines_chat_limit)
     sended_newspapers = []
     sended_magazines = []
 
@@ -147,6 +141,7 @@ def get_sended_files(client):
     # Return the messages data list
     print(str(len(files)) + " newspapers and magazines found")
     return files
+
 def we_want(filename):
     filename = filename.strip().upper()
     if filename in newspapers_filter or filename in magazines_filter:
@@ -220,7 +215,8 @@ def countPdfFiles():
                 counter = counter + 1
     return counter
 
-def send_files(tg_client):
+
+def send_files(tg_client, newspapers_chat, magazines_chat):
     print("\nStart sending files to Telegram...")
     print(str(len(downloaded_files)) + " files to send")
     sended_files = []
@@ -233,6 +229,7 @@ def send_files(tg_client):
             elif file.type == "MAGAZINE":
                 tg_client.send_file(magazines_chat, file.filename, force_document=True)
             sended_files.append(file.filename)
+            print("Just sended " + file.filename)
     print("Files sended!\n")
 
 def send_message_to_admin(tg_client):
@@ -242,7 +239,7 @@ def send_message_to_admin(tg_client):
     for file in downloaded_files:
         file_list.append(file.filename)
 
-    tg_client.send_message(admin_alias,"Hello! Your bot here\n" + newspapers + " newspapers sended to Telegram Group:\n " + str(file_list))
+    tg_client.send_message(admin_alias,"Hello! Your bot here\n" + newspapers + " files sended to Telegram Group:\n " + str(file_list))
 
 def clean():
     if (interactive_mode == True) :
@@ -265,33 +262,65 @@ def clean():
             print("Delete error, some files are still in the folder. Please check")
 
 
+def get_chat_entity(client, chat_url, chat_name):
+    try:
+        chat_entity = client.get_entity(chat_url)
+    except:
+        print("Cannot retrieve chat by link. Searching your chats..")
+
+        for chat in chat_list:
+            if chat.name == chat_name:
+                chat_entity = client.get_entity(chat)
+                print("Using chat " + chat.name)
+                break
+    return chat_entity
+
+
+def find_chat_entities(client):
+    source_chat = get_chat_entity(client, source_chat_url, source_chat_name)
+    newspapers_chat = get_chat_entity(client, newspapers_chat_url, newspapers_chat_name)
+    magazines_chat = get_chat_entity(client, magazines_chat_url, magazines_chat_name)
+    return source_chat, newspapers_chat, magazines_chat
+
 def main():
     tg_client = start_telegram()
-    files_to_download = get_links_from_telegram(tg_client)
-    sended_newspapers, sended_magazines = get_sended_files(tg_client)
+    chat_list = tg_client.get_dialogs()
+    source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client)
+    files_to_download = get_links_from_telegram(tg_client, source_chat)
+    sended_newspapers, sended_magazines = get_sended_files(tg_client, newspapers_chat, magazines_chat)
     files_to_download = clean_list(files_to_download, sended_newspapers, sended_magazines)
     download(files_to_download)
-    send_files(tg_client)
+    send_files(tg_client, newspapers_chat, magazines_chat)
     send_message_to_admin(tg_client)
     clean()
 
+
+# General config
+url_domains = TelegramApi.url_domains
+admin_alias = TelegramApi.admin_alias
+downloads_path = AlldebridAPI.downloads_path
+interactive_mode = AlldebridAPI.interactive_mode
 
 # Telegram
 api_id = TelegramApi.api_id
 api_hash = TelegramApi.api_hash
 phone_number = TelegramApi.phone_number
-source_chat = TelegramApi.source_chat
+
+# Source chat
+source_chat_url = TelegramApi.source_chat_url
 source_chat_name = TelegramApi.source_chat_name
-newspapers_chat = TelegramApi.newspapers_chat
-magazines_chat = TelegramApi.magazines_chat
 source_chat_limit = TelegramApi.source_chat_limit
+
+# Newspapers chat
+newspapers_chat_url = TelegramApi.newspapers_chat_url
+newspapers_chat_name = TelegramApi.newspapers_chat_name
 newspapers_chat_limit = TelegramApi.newspapers_chat_limit
-magazines_chat_limit = TelegramApi.magazines_chat_limit
-url_domains = TelegramApi.url_domains
-admin_alias = TelegramApi.admin_alias
-downloads_path = AlldebridAPI.downloads_path
 newspapers_filter = AlldebridAPI.newspapers_filter
+
+# Magazines chat
+magazines_chat_url = TelegramApi.magazines_chat_url
+magazines_chat_name = TelegramApi.magazines_chat_name
+magazines_chat_limit = TelegramApi.magazines_chat_limit
 magazines_filter = AlldebridAPI.magazines_filter
-interactive_mode = AlldebridAPI.interactive_mode
 
 main()
