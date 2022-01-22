@@ -262,12 +262,12 @@ def clean():
             print("Delete error, some files are still in the folder. Please check")
 
 
-def get_chat_entity(client, chat_url, chat_name):
+def get_chat_entity(client,chat_list, chat_url, chat_name):
+    chat_entity = ''
     try:
         chat_entity = client.get_entity(chat_url)
     except:
         print("Cannot retrieve chat by link. Searching your chats..")
-
         for chat in chat_list:
             if chat.name == chat_name:
                 chat_entity = client.get_entity(chat)
@@ -276,16 +276,16 @@ def get_chat_entity(client, chat_url, chat_name):
     return chat_entity
 
 
-def find_chat_entities(client):
-    source_chat = get_chat_entity(client, source_chat_url, source_chat_name)
-    newspapers_chat = get_chat_entity(client, newspapers_chat_url, newspapers_chat_name)
-    magazines_chat = get_chat_entity(client, magazines_chat_url, magazines_chat_name)
+def find_chat_entities(client, chat_list):
+    source_chat = get_chat_entity(client,chat_list,  source_chat_url, source_chat_name)
+    newspapers_chat = get_chat_entity(client,chat_list, newspapers_chat_url, newspapers_chat_name)
+    magazines_chat = get_chat_entity(client,chat_list, magazines_chat_url, magazines_chat_name)
     return source_chat, newspapers_chat, magazines_chat
 
 def main():
     tg_client = start_telegram()
     chat_list = tg_client.get_dialogs()
-    source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client)
+    source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client, chat_list)
     files_to_download = get_links_from_telegram(tg_client, source_chat)
     sended_newspapers, sended_magazines = get_sended_files(tg_client, newspapers_chat, magazines_chat)
     files_to_download = clean_list(files_to_download, sended_newspapers, sended_magazines)
