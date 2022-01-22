@@ -98,7 +98,12 @@ def build_message(msg, type, formatted_msg):
         char = "-"
     elif "/" in formatted_msg:
         char = "/"
+
     title, date = formatted_msg.split(char, 1)
+
+    if "-" in formatted_msg and "/" in formatted_msg:
+        trash, date = formatted_msg.split('/', 1)
+
     for url in msg:
         if url_domains[0] in url:
             return Message(type, title, url, date)
@@ -160,6 +165,7 @@ def download(files):
         file.filename = file.get_dated_filename() + ".pdf"
         if http_response["status"] != "error":
             converted_link = http_response["data"]["link"]
+            file.url = converted_link
             print("  Downloading " + file.filename + " ...")
             download_file(file)
             downloaded_files.append(file)
@@ -183,7 +189,7 @@ def download_file(file):
         if downloads_path != "":
             path = downloads_path + "/" + file.filename
         else:
-            path = file.filename.replace("/"," ")
+            path = file.filename
         open(path, "wb").write(requests.get(file.url).content)
 
 def obtain_daily_filename(filename):
@@ -223,7 +229,7 @@ def send_files(tg_client):
     for file in downloaded_files:
         if file.filename not in sended_files:
             if file.type =="NEWSPAPER":
-               tg_client.send_file(newspapers_chat, file.filename, force_document=True)
+                tg_client.send_file(newspapers_chat, file.filename, force_document=True)
             elif file.type == "MAGAZINE":
                 tg_client.send_file(magazines_chat, file.filename, force_document=True)
             sended_files.append(file.filename)
