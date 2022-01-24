@@ -12,6 +12,8 @@ import requests, os
 errors = ""
 downloaded_files = []
 chat_list = []
+NEWSPAPER = 'NEWSPAPER'
+MAGAZINE = 'MAGAZINE'
 
 # Class
 class Message:
@@ -66,13 +68,13 @@ def tlg_connect(api_id, api_hash, phone_number):
     return client
 
 def isToday(date):
-    return str(datetime.now().day -1) in date
+    return date.day == datetime.now().day
 
-def clean_list(files, sended_newspapers, sended_magazines):
+def clean_list(files):
     clean_files = []
     if files:
         for f in files:
-            if f in clean_files or f.filename in sended_newspapers or f.filename in sended_magazines:
+            if f in clean_files:
                 clean_files.remove(f)
             if we_want(f.filename):
                 clean_files.append(f)
@@ -97,6 +99,9 @@ def build_message(msg, type, formatted_msg):
     if "-" in formatted_msg and "/" in formatted_msg:
         trash, date = formatted_msg.split('/', 1)
 
+    if (type == NEWSPAPER):
+        date = datetime.now()
+
     for url in msg:
         if url_domains[0] in url:
             return Message(type, title, url, date)
@@ -110,12 +115,12 @@ def get_links_from_telegram(client, source_chat):
 
     for message in messages_list:
         msg = message.message.split("\n")
-        if message.message.startswith("#diarios") and isToday(message.message):
+        if message.message.startswith("#diarios") and isToday(message.date):
             formatted_msg = get_formatted_message(msg, "#diarios ")
-            files.append(build_message(msg, "NEWSPAPER", formatted_msg))
+            files.append(build_message(msg, NEWSPAPER, formatted_msg))
         elif message.message.startswith("#revistas"):
             formatted_msg = get_formatted_message(msg, "#revistas ")
-            files.append(build_message(msg, "MAGAZINE", formatted_msg))
+            files.append(build_message(msg, MAGAZINE, formatted_msg))
 
 
     # Return the messages data list
@@ -288,7 +293,7 @@ def main():
     source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client, chat_list)
     files_to_download = get_links_from_telegram(tg_client, source_chat)
     sended_newspapers, sended_magazines = get_sended_files(tg_client, newspapers_chat, magazines_chat)
-    files_to_download = clean_list(files_to_download, sended_newspapers, sended_magazines)
+    files_to_download = clean_list(files_to_download)
     download(files_to_download)
     send_files(tg_client, newspapers_chat, magazines_chat)
     send_message_to_admin(tg_client)
