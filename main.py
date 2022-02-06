@@ -241,7 +241,10 @@ def remove_pdf_files():
     for parent, dirnames, filenames in os.walk('.'):
         for fn in filenames:
             if fn.lower().endswith('.pdf'):
-                os.remove(os.path.join(fn))
+                try:
+                    os.remove(os.path.join(fn))
+                except Exception:
+                    print("Error removingex " + fn)
 
 def count_pdf_files():
     counter = 0
