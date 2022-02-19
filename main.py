@@ -265,13 +265,10 @@ def build_message(msg, type, formatted_msg):
     elif "/" in formatted_msg:
         char = "/"
 
-    title, date = formatted_msg.split(char, 1)
+    title, date = formatted_msg.rsplit(char, 1)
 
     if "-" in formatted_msg and "/" in formatted_msg:
-        trash, date = formatted_msg.split('/', 1)
-
-    if (type == NEWSPAPER):
-        date = datetime.now()
+        trash, date = formatted_msg.rsplit('/', 1)
 
     for url in msg:
         if url_domains[0] in url:
