@@ -19,7 +19,7 @@ MAGAZINE = 'MAGAZINE'
 class Message:
     def __init__(self, type, filename,url, date):
         self.type = type
-        self.filename = filename
+        self.filename = filename.strip()
         self.url = url
         self.date = date
 
@@ -30,10 +30,7 @@ class Message:
         return self.type
 
     def get_dated_filename(self):
-        if not self.date or self.type == 'NEWSPAPER':
-            return self.filename + ", " + pretty_print_date(datetime.now())
-        else:
-            return self.filename + ", " + self.date
+        return self.filename + ", " + self.date
 
     def print(self):
         return self.get_message()
@@ -45,6 +42,22 @@ def start_telegram():
 
 def get_telegram_messages(client, chat, messages_limit):
     return client.get_messages(chat, limit=messages_limit)
+
+def get_sended_newspapers_from_today(client, chat, messages_limit):
+    filtered_newspapers = []
+    messages = client.get_messages(chat, limit=messages_limit)
+    for message in messages:
+        if (is_today(message.date) and message.file is not None):
+            filtered_newspapers.append(message.file.name.split(",")[0].strip())
+    return filtered_newspapers
+
+def get_sended_magazines(client, magazines_chat, magazines_chat_limit):
+    filtered_magazines = []
+    telegram_sended_magazines = get_telegram_messages(client, magazines_chat, magazines_chat_limit)
+    for magazine in telegram_sended_magazines:
+        if (magazine.file is not None):
+            filtered_magazines.append(magazine.file.name.split("-")[0].strip())
+    return filtered_magazines
 
 def wait_for_code(client):
     code = input('Enter the code you just received: ')
@@ -84,10 +97,10 @@ def get_links_from_telegram(client, source_chat):
             msg = message.message.split("\n")
             if message.message.startswith("#diarios") and is_today(message.date):
                 formatted_msg = get_formatted_message(msg, "#diarios ")
-                files.append(build_message(msg, NEWSPAPER, formatted_msg))
+                files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
             elif message.message.startswith("#revistas"):
                 formatted_msg = get_formatted_message(msg, "#revistas ")
-                files.append(build_message(msg, MAGAZINE, formatted_msg))
+                files.append(build_message(msg, MAGAZINE, formatted_msg,  message.date))
         except TypeError as e:
             print("Error processing one of the messages:\n " + e)
 
@@ -119,18 +132,10 @@ def find_chat_entities(client, chat_list):
 # Telegram - Check sended files
 def get_sended_files(client, newspapers_chat,magazines_chat):
     print("Obtaining already sended files...")
-    telegram_sended_newspapers = get_telegram_messages(client, newspapers_chat, newspapers_chat_limit)
-    telegram_sended_magazines = get_telegram_messages(client, magazines_chat, magazines_chat_limit)
-    sended_newspapers = []
-    sended_magazines = []
+    telegram_sended_newspapers = get_sended_newspapers_from_today(client, newspapers_chat, newspapers_chat_limit)
+    telegram_sended_magazines = get_sended_magazines(client, magazines_chat, magazines_chat_limit)
 
-    for message in telegram_sended_newspapers:
-        if message and message.file and message.date.day == datetime.now().day:
-            sended_newspapers.append(message.file.name)
-    for message in telegram_sended_magazines:
-        if message and message.file and message.date.day:
-            sended_magazines.append(message.file.name)
-    return sended_newspapers, sended_magazines
+    return telegram_sended_newspapers, telegram_sended_magazines
 
 # Telegram - Send files and messages
 def send_files(tg_client, newspapers_chat, magazines_chat):
@@ -142,9 +147,9 @@ def send_files(tg_client, newspapers_chat, magazines_chat):
     for file in downloaded_files:
         if file.filename not in sended_files:
             try:
-                if file.type =="NEWSPAPER":
+                if file.type == NEWSPAPER:
                     tg_client.send_file(newspapers_chat, file.filename, force_document=True)
-                elif file.type == "MAGAZINE":
+                elif file.type == MAGAZINE:
                     tg_client.send_file(magazines_chat, file.filename, force_document=True)
                 sended_files.append(file.filename)
                 print("Just sended " + file.filename)
@@ -168,7 +173,7 @@ def is_today(date):
     return date.day == datetime.now().day
 
 def pretty_print_date(date):
-    months = ("Enero", "Febrero", "Marzo", "Abri", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
+    months = ("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
     day = date.day
     month = months[date.month-1]
     current_date = "{} de {}".format(day, month)
@@ -209,33 +214,46 @@ def download_file(file):
 def open_link_file(path):
     return open(path, "r")
 
-def remove_already_sended_files(clean_files, sended_newspapers, sended_magazines):
-    print("We want to download " + str(len(clean_files)) + " files")
+
+def get_filenames_from_wanted_files(clean_files):
+    clean_filenames = []
+    for file in clean_files:
+        clean_filenames.append(file.filename.strip())
+    return clean_filenames
+
+
+def remove_files_from_filenames(clean_files, clean_names):
+    filtered_clean_files = []
+    for file in clean_files:
+        if file.filename in clean_names:
+            filtered_clean_files.append(file)
+    return filtered_clean_files
+
+
+def remove_already_sended_files(files_that_we_want, sended_newspapers, sended_magazines):
+    print("We want to download " + str(len(files_that_we_want)) + " files")
     print("Checking for already sended files...")
-    not_filtered_files = len(clean_files)
+    not_filtered_files = len(files_that_we_want)
+    clean_names = get_filenames_from_wanted_files(files_that_we_want)
 
-    for newspaper in sended_newspapers:
-        if newspaper in clean_files:
-            clean_files.remove(newspaper)
+    filtered_clean_names = []
+    for name in clean_names:
+        if name not in sended_newspapers and name not in sended_magazines:
+            filtered_clean_names.append(name)
 
-    for magazine in sended_magazines:
-        if magazine in clean_files:
-            clean_files.remove(newspaper)
-    print("We removed " + (str(not_filtered_files - len(clean_files)) + " files"))
-    return clean_files
+    files_that_we_want = remove_files_from_filenames(files_that_we_want, filtered_clean_names)
+    print("We removed " + (str(not_filtered_files - len(files_that_we_want)) + " files"))
+    return files_that_we_want
 
 def clean_list(files, sended_newspapers, sended_magazines):
-    clean_files = []
+    files_that_we_want = []
     if files:
         for f in files:
-            if f is not None:
-                if f in clean_files:
-                    clean_files.remove(f)
-                if we_want(f.filename):
-                    clean_files.append(f)
+            if f is not None and we_want(f) and f not in files_that_we_want:
+                files_that_we_want.append(f)
 
-    clean_files = remove_already_sended_files(clean_files, sended_newspapers, sended_magazines)
-    return clean_files
+    files_that_we_want = remove_already_sended_files(files_that_we_want, sended_newspapers, sended_magazines)
+    return files_that_we_want
 
 def remove_pdf_files():
     for parent, dirnames, filenames in os.walk('.'):
@@ -258,26 +276,33 @@ def count_pdf_files():
 def get_formatted_message(msg, key):
     return msg[0].replace(key, "")
 
-def build_message(msg, type, formatted_msg):
+def build_message(msg, type, formatted_msg, date):
     char = None
-    if "-" in formatted_msg:
+    if "+" in formatted_msg:
+        char = "+"
+    elif "-" in formatted_msg:
         char = "-"
     elif "/" in formatted_msg:
         char = "/"
 
-    title, date = formatted_msg.rsplit(char, 1)
-
-    if "-" in formatted_msg and "/" in formatted_msg:
-        trash, date = formatted_msg.rsplit('/', 1)
+    title = formatted_msg.rsplit(char)[0]
 
     for url in msg:
         if url_domains[0] in url:
-            return Message(type, title, url, date)
+            if (type == MAGAZINE):
+                if msg[0].rsplit("-")[1] is not None:
+                    date = msg[0].rsplit("-")[1]
+                else:
+                    date = msg[0].rsplit("-")
+                return Message(type, title, url, date)
+            return Message(type, title, url, pretty_print_date(date))
 
-def we_want(filename):
-    filename = filename.strip().upper()
-    if filename in newspapers_filter or filename in magazines_filter:
-        return True
+def we_want(file):
+    filename = file.filename.strip().upper()
+    if file.type == NEWSPAPER:
+        return filename in newspapers_filter
+    elif file.type == MAGAZINE:
+        return filename in magazines_filter
     return False
 
 def obtain_daily_filename(filename):
