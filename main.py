@@ -94,13 +94,14 @@ def get_links_from_telegram(client, source_chat):
 
     for message in messages_list:
         try:
-            msg = message.message.split("\n")
-            if message.message.startswith("#diarios") and is_today(message.date):
-                formatted_msg = get_formatted_message(msg, "#diarios ")
-                files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
-            elif message.message.startswith("#revistas"):
-                formatted_msg = get_formatted_message(msg, "#revistas ")
-                files.append(build_message(msg, MAGAZINE, formatted_msg,  message.date))
+            if message.message is not None:
+                msg = message.message.split("\n")
+                if message.message.startswith("#diarios") and is_today(message.date):
+                    formatted_msg = get_formatted_message(msg, "#diarios ")
+                    files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
+                elif message.message.startswith("#revistas"):
+                    formatted_msg = get_formatted_message(msg, "#revistas ")
+                    files.append(build_message(msg, MAGAZINE, formatted_msg,  message.date))
         except TypeError as e:
             print("Error processing one of the messages:\n " + e)
 
@@ -109,14 +110,13 @@ def get_links_from_telegram(client, source_chat):
     return files
 
 # Telegram - Chat entities
-def get_chat_entity(client,chat_list, chat_url, chat_name):
+def get_chat_entity(client, chat_list, chat_id, chat_name):
     chat_entity = ''
     try:
-        chat_entity = client.get_entity(chat_url)
+        chat_entity = client.get_entity(chat_id)
     except Exception:
-        print("Cannot retrieve chat by link. Searching your chats..")
         for chat in chat_list:
-            if chat.name == chat_name:
+            if chat_name in chat.name:
                 chat_entity = client.get_entity(chat)
                 print("Using chat " + chat.name)
                 break
@@ -124,9 +124,9 @@ def get_chat_entity(client,chat_list, chat_url, chat_name):
 
 # Telegram - Find chats
 def find_chat_entities(client, chat_list):
-    source_chat = get_chat_entity(client,chat_list,  source_chat_url, source_chat_name)
-    newspapers_chat = get_chat_entity(client,chat_list, newspapers_chat_url, newspapers_chat_name)
-    magazines_chat = get_chat_entity(client,chat_list, magazines_chat_url, magazines_chat_name)
+    source_chat = get_chat_entity(client,chat_list,  source_chat_id, source_chat_name)
+    newspapers_chat = get_chat_entity(client,chat_list, newspapers_chat_id, newspapers_chat_name)
+    magazines_chat = get_chat_entity(client,chat_list, magazines_chat_id, magazines_chat_name)
     return source_chat, newspapers_chat, magazines_chat
 
 # Telegram - Check sended files
@@ -371,18 +371,18 @@ api_hash = TelegramApi.api_hash
 phone_number = TelegramApi.phone_number
 
 # Source chat
-source_chat_url = TelegramApi.source_chat_url
+source_chat_id = TelegramApi.source_chat_id
 source_chat_name = TelegramApi.source_chat_name
 source_chat_limit = TelegramApi.source_chat_limit
 
 # Newspapers chat
-newspapers_chat_url = TelegramApi.newspapers_chat_url
+newspapers_chat_id = TelegramApi.newspapers_chat_id
 newspapers_chat_name = TelegramApi.newspapers_chat_name
 newspapers_chat_limit = TelegramApi.newspapers_chat_limit
 newspapers_filter = AlldebridAPI.newspapers_filter
 
 # Magazines chat
-magazines_chat_url = TelegramApi.magazines_chat_url
+magazines_chat_id = TelegramApi.magazines_chat_id
 magazines_chat_name = TelegramApi.magazines_chat_name
 magazines_chat_limit = TelegramApi.magazines_chat_limit
 magazines_filter = AlldebridAPI.magazines_filter
