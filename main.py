@@ -56,7 +56,7 @@ def get_sended_magazines(client, magazines_chat, magazines_chat_limit):
     telegram_sended_magazines = get_telegram_messages(client, magazines_chat, magazines_chat_limit)
     for magazine in telegram_sended_magazines:
         if (magazine.file is not None):
-            filtered_magazines.append(magazine.file.name.split("-")[0].strip())
+            filtered_magazines.append(magazine.file.name.split(",")[0].strip())
     return filtered_magazines
 
 def wait_for_code(client):
@@ -96,12 +96,12 @@ def get_links_from_telegram(client, source_chat):
         try:
             if message.message is not None:
                 msg = message.message.split("\n")
-                if message.message.startswith("#diarios") and is_today(message.date):
-                    formatted_msg = get_formatted_message(msg, "#diarios ")
-                    files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
-                elif message.message.startswith("#revistas"):
+                if message.message.startswith("#revistas"):
                     formatted_msg = get_formatted_message(msg, "#revistas ")
                     files.append(build_message(msg, MAGAZINE, formatted_msg,  message.date))
+                elif is_today(message.date) and TelegramApi.source_alias not in message.message:
+                    formatted_msg = get_formatted_message(msg, "#diarios ")
+                    files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
         except TypeError as e:
             print("Error processing one of the messages:\n " + e)
 
@@ -196,7 +196,10 @@ def download(files):
         if http_response["status"] != "error":
             converted_link = http_response["data"]["link"]
             file.url = converted_link
-            print("  Downloading " + file.filename + " ...")
+
+            while "  " in file.filename:
+                file.filename = file.filename.replace("  "," ")
+
             download_file(file)
             downloaded_files.append(file)
             ok = ok + 1
@@ -207,11 +210,15 @@ def download(files):
 def download_file(file):
 
     if not os.path.isfile(file.filename):
-        if downloads_path != "":
-            path = downloads_path + "/" + file.filename
-        else:
-            path = file.filename
-        open(path, "wb").write(requests.get(file.url).content)
+        try:
+            if downloads_path != "":
+                file.filename = downloads_path + "/" + file.filename
+            else:
+                file.filename = file.filename.replace(r"/"," ")
+            print("  Downloading " + file.filename + " ...")
+            open(file.filename, "wb").write(requests.get(file.url).content)
+        except Exception:
+            print("Error downloading " + file.filename)
 
 # File management
 def open_link_file(path):
@@ -312,7 +319,7 @@ def remove_pdf_files():
                 try:
                     os.remove(os.path.join(fn))
                 except Exception:
-                    print("Error removingex " + fn)
+                    print("Error removing file " + fn)
 
 def count_pdf_files():
     counter = 0
@@ -362,6 +369,7 @@ def main():
 # General config
 url_domains = TelegramApi.url_domains
 admin_alias = TelegramApi.admin_alias
+source_alias = TelegramApi.source_alias
 downloads_path = AlldebridAPI.downloads_path
 interactive_mode = AlldebridAPI.interactive_mode
 
