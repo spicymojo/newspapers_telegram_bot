@@ -20,4 +20,5 @@ class TelegramApi(object):
     magazines_chat_name = ''
     magazines_chat_limit = 0
     admin_alias = ''
+    source_alias = ''
     url_domains = ['']
