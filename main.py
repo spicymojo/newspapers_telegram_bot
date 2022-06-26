@@ -340,18 +340,6 @@ def count_pdf_files():
 
 # Cleaning methods
 def clean():
-    if (interactive_mode == True) :
-        clean = input("Done! Do you want to clean the downloaded files? (y/n)")
-        if not clean.lower() == "n":
-            print("Okay! Using the Roomyba...")
-            remove_pdf_files()
-            if (count_pdf_files() == 0):
-                print("Done! All clean for tomorrow!")
-            else:
-                print("Delete error, some files are still in the folder. Please check")
-        else:
-            print("No problem! Have a nice day!")
-    else:
         print("Cleaning the files...")
         remove_pdf_files()
         if (count_pdf_files() == 0):
@@ -380,7 +368,6 @@ url_domains = TelegramApi.url_domains
 admin_alias = TelegramApi.admin_alias
 source_alias = TelegramApi.source_alias
 downloads_path = AlldebridAPI.downloads_path
-interactive_mode = AlldebridAPI.interactive_mode
 
 # Telegram
 api_id = TelegramApi.api_id
