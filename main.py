@@ -138,12 +138,21 @@ def get_sended_files(client, newspapers_chat,magazines_chat):
     return telegram_sended_newspapers, telegram_sended_magazines
 
 # Telegram - Send files and messages
+def send_day_message(tg_client, newspapers_chat):
+    messages = tg_client.get_messages(newspapers_chat, limit=newspapers_chat_limit)
+    for message in messages:
+        if "#" in message.message:
+            return;
+    tg_client.send_message(newspapers_chat, "# " + str(pretty_print_date(datetime.now())))
+
+
 def send_files(tg_client, newspapers_chat, magazines_chat):
     print("\nStart sending files to Telegram...")
     print(str(len(downloaded_files)) + " files to send")
     sended_files = []
 
-    tg_client.send_message(newspapers_chat, "# " + str(pretty_print_date(datetime.now())))
+    send_day_message(tg_client, newspapers_chat)
+
     for file in downloaded_files:
         if file.filename not in sended_files:
             try:
@@ -168,8 +177,8 @@ def send_message_to_admin(tg_client):
     tg_client.send_message(admin_alias,"Hello! Your bot here\n" + newspapers + " files sended to Telegram Group:\n " + str(file_list))
 
 def send_not_new_files_message(tg_client):
-    tg_client.send_message(admin_alias,"Hello! Your bot here! Anything new on sight, so I dont download anything")
-    print("Anything new to download, stopping")
+    tg_client.send_message(admin_alias,"Hello! Your bot here! Nothing new on sight, so I didnt do shit")
+    print("Nothing new to download, stopping")
 
 # Date methods
 def is_today(date):
