@@ -286,19 +286,24 @@ def build_message(msg, type, formatted_msg, date):
     elif "/" in formatted_msg:
         char = "/"
 
-    title = formatted_msg.rsplit(char)[0]
-    while char in title:
+    try:
         title = formatted_msg.rsplit(char)[0]
+        while char in title:
+            title = formatted_msg.rsplit(char)[0]
+    except Exception:
+        print("Error building message" + msg)
 
-    for url in msg:
-        if url_domains[0] in url:
-            if (type == MAGAZINE):
-                if msg[0].rsplit("-")[1] is not None:
-                    date = msg[0].rsplit("-")[1]
-                else:
-                    date = msg[0].rsplit("-")
-                return Message(type, title, url, date)
-            return Message(type, title, url, pretty_print_date(date))
+        if title:
+            for url in msg:
+                if url_domains[0] in url:
+                    if (type == MAGAZINE):
+                        if msg[0].rsplit("-")[1] is not None:
+                            date = msg[0].rsplit("-")[1]
+                        else:
+                            date = msg[0].rsplit("-")
+                        return Message(type, title, url, date)
+                    return Message(type, title, url, pretty_print_date(date))
+
 
 # Aux - Make decissions
 def we_want(file):
