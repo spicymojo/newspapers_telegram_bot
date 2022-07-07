@@ -291,7 +291,7 @@ def build_message(msg, type, formatted_msg, date):
         while char in title:
             title = formatted_msg.rsplit(char)[0]
     except Exception:
-        print("Error building message" + msg)
+        print("Error building message" + msg[0])
 
         if title:
             for url in msg:
