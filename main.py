@@ -286,6 +286,7 @@ def build_message(msg, type, formatted_msg, date):
     elif "/" in formatted_msg:
         char = "/"
 
+    title = ""
     try:
         title = formatted_msg.rsplit(char)[0]
         while char in title:
