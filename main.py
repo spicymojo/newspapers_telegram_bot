@@ -99,7 +99,7 @@ def get_links_from_telegram(client, source_chat):
                 if message.message.startswith("#revistas"):
                     formatted_msg = get_formatted_message(msg, "#revistas ")
                     files.append(build_message(msg, MAGAZINE, formatted_msg,  message.date))
-                elif is_today(message.date) and TelegramApi.source_alias not in message.message:
+                elif "@" not in message.message:
                     formatted_msg = get_formatted_message(msg, "#diarios ")
                     files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
         except TypeError as e:
@@ -357,7 +357,7 @@ def main():
 
     if (len(files_to_download) > 0):
         download(files_to_download)
-        send_files(tg_client, newspapers_chat, magazines_chat)
+        #send_files(tg_client, newspapers_chat, magazines_chat)
         send_message_to_admin(tg_client)
         clean()
     else:
@@ -366,7 +366,6 @@ def main():
 # General config
 url_domains = TelegramApi.url_domains
 admin_alias = TelegramApi.admin_alias
-source_alias = TelegramApi.source_alias
 downloads_path = AlldebridAPI.downloads_path
 
 # Telegram
