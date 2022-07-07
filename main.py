@@ -94,39 +94,38 @@ def get_links_from_telegram(client, source_chat):
 
     for message in messages_list:
         try:
-            if message.message is not None:
-                msg = message.message.split("\n")
-                if message.message.startswith("#revistas"):
-                    formatted_msg = get_formatted_message(msg, "#revistas ")
-                    files.append(build_message(msg, MAGAZINE, formatted_msg,  message.date))
-                elif "@" not in message.message:
-                    formatted_msg = get_formatted_message(msg, "#diarios ")
-                    files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
+            if (is_today(message.date)):
+                msg = message.raw_text
+                if msg is not None and "@" not in msg:
+                    msg = message.message.split("\n")
+                    wanted, type = we_want(msg)
+                    if wanted:
+                        if type == MAGAZINE:
+                            formatted_msg = get_formatted_message(msg, "#revistas ")
+                            files.append(build_message(msg, MAGAZINE, formatted_msg, message.date))
+                        else:
+                            formatted_msg = get_formatted_message(msg, "#diarios ")
+                            files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
         except TypeError as e:
             print("Error processing one of the messages:\n " + e)
 
     # Return the messages data list
-    print(str(len(files)) + " newspapers and magazines found")
+    if (len(files)) != 0:
+        print(str(len(files)) + " newspapers and magazines found")
     return files
 
 # Telegram - Chat entities
-def get_chat_entity(client, chat_list, chat_id, chat_name):
-    chat_entity = ''
-    try:
-        chat_entity = client.get_entity(chat_id)
-    except Exception:
-        for chat in chat_list:
-            if chat_name in chat.name:
-                chat_entity = client.get_entity(chat)
-                print("Using chat " + chat.name)
-                break
-    return chat_entity
+def get_chat_entity(client, chat_list, chat_name):
+    for chat in chat_list:
+        if chat_name in chat.name:
+            return chat.id
 
 # Telegram - Find chats
 def find_chat_entities(client, chat_list):
-    source_chat = get_chat_entity(client,chat_list,  source_chat_id, source_chat_name)
-    newspapers_chat = get_chat_entity(client,chat_list, newspapers_chat_id, newspapers_chat_name)
-    magazines_chat = get_chat_entity(client,chat_list, magazines_chat_id, magazines_chat_name)
+    chat_list = client.iter_dialogs()
+    source_chat = get_chat_entity(client,chat_list, source_chat_name)
+    newspapers_chat = get_chat_entity(client,chat_list, newspapers_chat_name)
+    magazines_chat = get_chat_entity(client,chat_list, magazines_chat_name)
     return source_chat, newspapers_chat, magazines_chat
 
 # Telegram - Check sended files
@@ -267,7 +266,7 @@ def clean_list(files, sended_newspapers, sended_magazines):
     files_that_we_want = []
     if files:
         for f in files:
-            if f is not None and we_want(f) and f not in files_that_we_want:
+            if f is not None and f not in files_that_we_want:
                 files_that_we_want.append(f)
 
     files_that_we_want = remove_already_sended_files(files_that_we_want, sended_newspapers, sended_magazines)
@@ -294,26 +293,26 @@ def build_message(msg, type, formatted_msg, date):
     except Exception:
         print("Error building message" + msg[0])
 
-        if title:
-            for url in msg:
-                if url_domains[0] in url:
-                    if (type == MAGAZINE):
-                        if msg[0].rsplit("-")[1] is not None:
-                            date = msg[0].rsplit("-")[1]
-                        else:
-                            date = msg[0].rsplit("-")
-                        return Message(type, title, url, date)
-                    return Message(type, title, url, pretty_print_date(date))
+    if title:
+        for url in msg:
+            if url_domains[0] in url:
+                if (type == MAGAZINE):
+                    if msg[0].rsplit("-")[1] is not None:
+                        date = msg[0].rsplit("-")[1]
+                    else:
+                        date = msg[0].rsplit("-")
+                    return Message(type, title, url, date)
+                return Message(type, title, url, pretty_print_date(date))
 
 
 # Aux - Make decissions
 def we_want(file):
-    filename = file.filename.strip().upper()
-    if file.type == NEWSPAPER:
-        return filename in newspapers_filter
-    elif file.type == MAGAZINE:
-        return filename in magazines_filter
-    return False
+    filename = file[0].split("-")[0].strip().upper()
+    if filename in newspapers_filter:
+        return True, NEWSPAPER
+    elif filename in magazines_filter:
+        return True, MAGAZINE
+    return False, None
 
 def obtain_daily_filename(filename):
     filename = str(filename + " - " + pretty_print_date(datetime.now()) + ".pdf")
@@ -355,9 +354,11 @@ def clean():
 
 def main():
     tg_client = start_telegram()
-    chat_list = tg_client.get_dialogs()
     source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client, chat_list)
     files_to_download = get_links_from_telegram(tg_client, source_chat)
+    if (len(files_to_download) == 0):
+        print("No new files to download. Stopping")
+        return;
     sended_newspapers, sended_magazines = get_sended_files(tg_client, newspapers_chat, magazines_chat)
     files_to_download = clean_list(files_to_download, sended_newspapers, sended_magazines)
 
@@ -380,18 +381,15 @@ api_hash = TelegramApi.api_hash
 phone_number = TelegramApi.phone_number
 
 # Source chat
-source_chat_id = TelegramApi.source_chat_id
 source_chat_name = TelegramApi.source_chat_name
 source_chat_limit = TelegramApi.source_chat_limit
 
 # Newspapers chat
-newspapers_chat_id = TelegramApi.newspapers_chat_id
 newspapers_chat_name = TelegramApi.newspapers_chat_name
 newspapers_chat_limit = TelegramApi.newspapers_chat_limit
 newspapers_filter = AlldebridAPI.newspapers_filter
 
 # Magazines chat
-magazines_chat_id = TelegramApi.magazines_chat_id
 magazines_chat_name = TelegramApi.magazines_chat_name
 magazines_chat_limit = TelegramApi.magazines_chat_limit
 magazines_filter = AlldebridAPI.magazines_filter
