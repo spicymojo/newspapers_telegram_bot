@@ -372,8 +372,6 @@ def join_channel_if_needed(source_chat, tg_client):
         print("Joined channel " + updates.chats[0].title)
 
 
-
-
 def main():
     tg_client = start_telegram()
     source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client, chat_list)
