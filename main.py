@@ -1,3 +1,4 @@
+import asyncio
 from getpass import getpass
 
 from telethon.errors import SessionPasswordNeededError
@@ -6,6 +7,8 @@ from api.alldebrid import Alldebrid
 from datetime import datetime
 from resources.config import AlldebridAPI, TelegramApi
 from telethon.sync import TelegramClient
+from telethon.tl.functions.messages import ImportChatInviteRequest
+import re
 
 import requests, os
 
@@ -352,9 +355,29 @@ def clean():
         else:
             print("Delete error, some files are still in the folder. Please check")
 
+
+def find_pastebin_url_and_hash(source_chat):
+    pastebin = requests.get(pastebin_url).text
+    regex = r"[-a-zA-Z0-9@:%_\+.~#?&//=]{2,256}\.[a-z]{2,4}\b(\/[-a-zA-Z0-9@:%_\+.~#?&//=]*)?"
+    source_chat_url = telegram_url_prefix + re.findall(regex, pastebin)[1]
+    channel_hash = source_chat_url[source_chat_url.rfind('/') + 1:].replace("+","")
+    return source_chat_url, channel_hash
+
+
+def join_channel_if_needed(source_chat, tg_client):
+    if source_chat is None:
+        source_chat_url, source_chat_hash = find_pastebin_url_and_hash(source_chat)
+        print("The source group is dead. Joining ", source_chat_url)
+        updates = tg_client(ImportChatInviteRequest(source_chat_hash))
+        print("Joined channel " + updates.chats[0].title)
+
+
+
+
 def main():
     tg_client = start_telegram()
     source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client, chat_list)
+    join_channel_if_needed(source_chat, tg_client)
     files_to_download = get_links_from_telegram(tg_client, source_chat)
     if (len(files_to_download) == 0):
         print("No new files to download. Stopping")
@@ -364,7 +387,7 @@ def main():
 
     if (len(files_to_download) > 0):
         download(files_to_download)
-        #send_files(tg_client, newspapers_chat, magazines_chat)
+        send_files(tg_client, newspapers_chat, magazines_chat)
         send_message_to_admin(tg_client)
         clean()
     else:
@@ -374,6 +397,8 @@ def main():
 url_domains = TelegramApi.url_domains
 admin_alias = TelegramApi.admin_alias
 downloads_path = AlldebridAPI.downloads_path
+pastebin_url = AlldebridAPI.pastebin_url
+telegram_url_prefix = AlldebridAPI.telegram_url_prefix
 
 # Telegram
 api_id = TelegramApi.api_id

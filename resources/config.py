@@ -5,6 +5,8 @@ class AlldebridAPI(object):
     newspapers_filter = ['']
     magazines_filter = ['']
     interactive_mode = ''
+    pastebin_url = ""
+    telegram_url_prefix = ""
 
 class TelegramApi(object):
     api_id = ''
