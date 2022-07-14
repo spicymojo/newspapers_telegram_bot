@@ -359,13 +359,24 @@ def clean():
 def find_pastebin_url_and_hash(source_chat):
     pastebin = requests.get(pastebin_url).text
     regex = r"[-a-zA-Z0-9@:%_\+.~#?&//=]{2,256}\.[a-z]{2,4}\b(\/[-a-zA-Z0-9@:%_\+.~#?&//=]*)?"
-    source_chat_url = telegram_url_prefix + re.findall(regex, pastebin)[1]
+    pastebin_urls = re.findall(regex, pastebin)
+    if 2 == len(pastebin_urls):
+        source_chat_url = telegram_url_prefix + pastebin_urls[1]
+    else:
+        source_chat_url = telegram_url_prefix + pastebin_urls[0]
     channel_hash = source_chat_url[source_chat_url.rfind('/') + 1:].replace("+","")
     return source_chat_url, channel_hash
 
 
 def join_channel_if_needed(source_chat, tg_client):
-    if source_chat is None:
+    source_chat_entity = None
+    if source_chat is not None:
+        source_chat_entity = tg_client.get_entity(source_chat)
+    if source_chat_entity is None or source_chat_entity.restricted:
+        try:
+            tg_client.delete_dialog(source_chat_entity)
+        except Exception:
+            print("Cannot delete channel. Maybe its already deleted")
         source_chat_url, source_chat_hash = find_pastebin_url_and_hash(source_chat)
         print("The source group is dead. Joining ", source_chat_url)
         updates = tg_client(ImportChatInviteRequest(source_chat_hash))
@@ -375,7 +386,7 @@ def join_channel_if_needed(source_chat, tg_client):
 def main():
     tg_client = start_telegram()
     source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client, chat_list)
-    join_channel_if_needed(source_chat, tg_client)
+    join_channel_if_needed(source_chat,tg_client)
     files_to_download = get_links_from_telegram(tg_client, source_chat)
     if (len(files_to_download) == 0):
         print("No new files to download. Stopping")
