@@ -89,6 +89,15 @@ def tlg_connect(api_id, api_hash, phone_number):
     return client
 
 # Telegram - Get messages
+def append_file_message(file_list, file_type, msg, message_date):
+    if file_type == MAGAZINE:
+        formatted_msg = get_formatted_message(msg, "#revistas ")
+        file_list.append(build_file_message(msg, MAGAZINE, formatted_msg, message_date))
+    else:
+        formatted_msg = get_formatted_message(msg, "#diarios ")
+        file_list.append(build_file_message(msg, NEWSPAPER, formatted_msg, message_date))
+
+
 def get_links_from_telegram(client, source_chat):
     print("Getting links from Telegram...")
     files = []
@@ -101,14 +110,9 @@ def get_links_from_telegram(client, source_chat):
                 msg = message.raw_text
                 if msg is not None and "@" not in msg:
                     msg = message.message.split("\n")
-                    wanted, type = we_want(msg)
+                    wanted, file_type = we_want(msg)
                     if wanted:
-                        if type == MAGAZINE:
-                            formatted_msg = get_formatted_message(msg, "#revistas ")
-                            files.append(build_message(msg, MAGAZINE, formatted_msg, message.date))
-                        else:
-                            formatted_msg = get_formatted_message(msg, "#diarios ")
-                            files.append(build_message(msg, NEWSPAPER, formatted_msg, message.date))
+                        append_file_message(files, file_type, msg, message.date)
         except TypeError as e:
             print("Error processing one of the messages:\n " + e)
 
@@ -118,17 +122,17 @@ def get_links_from_telegram(client, source_chat):
     return files
 
 # Telegram - Chat entities
-def get_chat_entity(client, chat_list, chat_name):
+def get_chat_entity(chat_list, chat_name):
     for chat in chat_list:
         if chat_name in chat.name:
             return chat.id
 
 # Telegram - Find chats
-def find_chat_entities(client, chat_list):
+def find_chat_entities(client):
     chat_list = client.iter_dialogs()
-    source_chat = get_chat_entity(client,chat_list, source_chat_name)
-    newspapers_chat = get_chat_entity(client,chat_list, newspapers_chat_name)
-    magazines_chat = get_chat_entity(client,chat_list, magazines_chat_name)
+    source_chat = get_chat_entity(chat_list, source_chat_name)
+    newspapers_chat = get_chat_entity(chat_list, newspapers_chat_name)
+    magazines_chat = get_chat_entity(chat_list, magazines_chat_name)
     return source_chat, newspapers_chat, magazines_chat
 
 # Telegram - Check sended files
@@ -279,7 +283,8 @@ def clean_list(files, sended_newspapers, sended_magazines):
 def get_formatted_message(msg, key):
     return msg[0].replace(key, "")
 
-def build_message(msg, type, formatted_msg, date):
+# Find char for splitting
+def find_separation_char(formatted_msg):
     char = None
     if "+" in formatted_msg:
         char = "+"
@@ -287,7 +292,20 @@ def build_message(msg, type, formatted_msg, date):
         char = "-"
     elif "/" in formatted_msg:
         char = "/"
+    return char
 
+# Format date for building message
+def format_date_from_message(msg):
+    date = None
+    if msg[0].rsplit("-")[1] is not None:
+        date = msg[0].rsplit("-")[1]
+    else:
+        date = msg[0].rsplit("-")
+    return date
+
+# Building message for file
+def build_file_message(msg, type, formatted_msg, date):
+    char = find_separation_char(formatted_msg)
     title = ""
     try:
         title = formatted_msg.rsplit(char)[0]
@@ -300,10 +318,7 @@ def build_message(msg, type, formatted_msg, date):
         for url in msg:
             if url_domains[0] in url:
                 if (type == MAGAZINE):
-                    if msg[0].rsplit("-")[1] is not None:
-                        date = msg[0].rsplit("-")[1]
-                    else:
-                        date = msg[0].rsplit("-")
+                    date = format_date_from_message(msg)
                     return Message(type, title, url, date)
                 return Message(type, title, url, pretty_print_date(date))
 
@@ -356,7 +371,7 @@ def clean():
             print("Delete error, some files are still in the folder. Please check")
 
 
-def find_pastebin_url_and_hash(source_chat):
+def find_pastebin_url_and_hash():
     pastebin = requests.get(pastebin_url).text
     regex = r"[-a-zA-Z0-9@:%_\+.~#?&//=]{2,256}\.[a-z]{2,4}\b(\/[-a-zA-Z0-9@:%_\+.~#?&//=]*)?"
     pastebin_urls = re.findall(regex, pastebin)
@@ -377,7 +392,7 @@ def join_channel_if_needed(source_chat, tg_client):
             tg_client.delete_dialog(source_chat_entity)
         except Exception:
             print("Cannot delete channel. Maybe its already deleted")
-        source_chat_url, source_chat_hash = find_pastebin_url_and_hash(source_chat)
+        source_chat_url, source_chat_hash = find_pastebin_url_and_hash()
         print("The source group is dead. Joining ", source_chat_url)
         updates = tg_client(ImportChatInviteRequest(source_chat_hash))
         print("Joined channel " + updates.chats[0].title)
@@ -385,7 +400,7 @@ def join_channel_if_needed(source_chat, tg_client):
 
 def main():
     tg_client = start_telegram()
-    source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client, chat_list)
+    source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client)
     join_channel_if_needed(source_chat,tg_client)
     files_to_download = get_links_from_telegram(tg_client, source_chat)
     if (len(files_to_download) == 0):
