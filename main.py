@@ -1,4 +1,5 @@
 import asyncio
+import time
 from getpass import getpass
 
 from telethon.errors import SessionPasswordNeededError
@@ -14,7 +15,6 @@ import requests, os
 
 errors = ""
 downloaded_files = []
-chat_list = []
 NEWSPAPER = 'NEWSPAPER'
 MAGAZINE = 'MAGAZINE'
 
@@ -130,10 +130,9 @@ def get_chat_entity(chat_list, chat_name):
 # Telegram - Find chats
 def find_chat_entities(client):
     chat_list = client.iter_dialogs()
-    source_chat = get_chat_entity(chat_list, source_chat_name)
     newspapers_chat = get_chat_entity(chat_list, newspapers_chat_name)
     magazines_chat = get_chat_entity(chat_list, magazines_chat_name)
-    return source_chat, newspapers_chat, magazines_chat
+    return newspapers_chat, magazines_chat
 
 # Telegram - Check sended files
 def get_sended_files(client, newspapers_chat,magazines_chat):
@@ -147,7 +146,7 @@ def get_sended_files(client, newspapers_chat,magazines_chat):
 def send_day_message(tg_client, newspapers_chat):
     messages = tg_client.get_messages(newspapers_chat, limit=newspapers_chat_limit)
     for message in messages:
-        if "#" in message.message:
+        if is_today(message.date) and "#" in message.message:
             return;
     tg_client.send_message(newspapers_chat, "# " + str(pretty_print_date(datetime.now())))
 
@@ -383,25 +382,28 @@ def find_pastebin_url_and_hash():
     return source_chat_url, channel_hash
 
 
-def join_channel_if_needed(source_chat, tg_client):
-    source_chat_entity = None
-    if source_chat is not None:
-        source_chat_entity = tg_client.get_entity(source_chat)
-    if source_chat_entity is None or source_chat_entity.restricted:
-        try:
-            tg_client.delete_dialog(source_chat_entity)
-        except Exception:
-            print("Cannot delete channel. Maybe its already deleted")
-        source_chat_url, source_chat_hash = find_pastebin_url_and_hash()
-        print("The source group is dead. Joining ", source_chat_url)
-        updates = tg_client(ImportChatInviteRequest(source_chat_hash))
-        print("Joined channel " + updates.chats[0].title)
+def leave_old_channel_and_join_new_one(tg_client, chat_list):
+    for chat in chat_list:
+        if TelegramApi.source_chat_name in chat.name:
+            try:
+                tg_client.delete_dialog(chat.id)
+                time.sleep(2)
+                print("Deleted channel " + chat.name)
+            except Exception:
+                print("Cannot delete channel " + source_chat_name)
+
+    source_chat_url, source_chat_hash = find_pastebin_url_and_hash()
+    updates = tg_client(ImportChatInviteRequest(source_chat_hash))
+    time.sleep(2)
+    print("Joined channel " + updates.chats[0].title)
+    return tg_client.get_entity(updates.chats[0].id)
 
 
 def main():
     tg_client = start_telegram()
-    source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client)
-    join_channel_if_needed(source_chat,tg_client)
+    newspapers_chat, magazines_chat = find_chat_entities(tg_client)
+    chat_list = tg_client.get_dialogs()
+    source_chat = leave_old_channel_and_join_new_one(tg_client, chat_list)
     files_to_download = get_links_from_telegram(tg_client, source_chat)
     if (len(files_to_download) == 0):
         print("No new files to download. Stopping")
