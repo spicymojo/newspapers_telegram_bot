@@ -1,30 +1,24 @@
-import asyncio
-import time
 from getpass import getpass
-
-from telethon.errors import SessionPasswordNeededError
-
-from api.alldebrid import Alldebrid
 from datetime import datetime
-from resources.config import AlldebridAPI, TelegramApi
+from resources.config import DownloaderAPI, TelegramApi
 from telethon.sync import TelegramClient
-from telethon.tl.functions.messages import ImportChatInviteRequest
-import re
 
-import requests, os
+import requests, os, glob
 
 errors = ""
-downloaded_files = []
 NEWSPAPER = 'NEWSPAPER'
 MAGAZINE = 'MAGAZINE'
+TMP_PATH = 'tmp/'
 
 # Class Message
-class Message:
-    def __init__(self, type, filename,url, date):
+class TelegramFile:
+
+    def __init__(self, name, type,id,date, media):
+        self.name = name
         self.type = type
-        self.filename = filename.strip()
-        self.url = url
+        self.id = id
         self.date = date
+        self.media = media
 
     def get_message(self):
         return self.filename + "," + self.date + "," + self.url
@@ -33,7 +27,7 @@ class Message:
         return self.type
 
     def get_dated_filename(self):
-        return self.filename + ", " + self.date
+        return self.name + ", " + self.date
 
     def print(self):
         return self.get_message()
@@ -89,14 +83,19 @@ def tlg_connect(api_id, api_hash, phone_number):
     return client
 
 # Telegram - Get messages
-def append_file_message(file_list, file_type, msg, message_date):
-    if file_type == MAGAZINE:
-        formatted_msg = get_formatted_message(msg, "#revistas ")
-        file_list.append(build_file_message(msg, MAGAZINE, formatted_msg, message_date))
-    else:
-        formatted_msg = get_formatted_message(msg, "#diarios ")
-        file_list.append(build_file_message(msg, NEWSPAPER, formatted_msg, message_date))
+def append_file_message(file, file_name,file_type, message_date, file_list):
+    file_list.append(build_file_message(file_name, file_type, file.media.id, message_date, file.media))
 
+def is_pdf(file):
+    try:
+        return file.media.mime_type == "application/pdf"
+    except AttributeError:
+        return False
+
+
+def get_filename_from_id(file_id):
+    file_id = file_id.split("-")[3].upper()
+    return DownloaderAPI.file_dict[file_id]
 
 def get_links_from_telegram(client, source_chat):
     print("Getting links from Telegram...")
@@ -106,13 +105,12 @@ def get_links_from_telegram(client, source_chat):
 
     for message in messages_list:
         try:
-            if (is_today(message.date)):
-                msg = message.raw_text
-                if msg is not None and "@" not in msg:
-                    msg = message.message.split("\n")
-                    wanted, file_type = we_want(msg)
-                    if wanted:
-                        append_file_message(files, file_type, msg, message.date)
+            if (is_today(message.date) and is_pdf(message.file)):
+                file = message.file
+                wanted, file_type = we_want(file.name)
+                if wanted:
+                    filename = get_filename_from_id(file.name)
+                    append_file_message(file, filename,file_type, message.date, files)
         except TypeError as e:
             print("Error processing one of the messages:\n " + e)
 
@@ -130,9 +128,10 @@ def get_chat_entity(chat_list, chat_name):
 # Telegram - Find chats
 def find_chat_entities(client):
     chat_list = client.iter_dialogs()
+    source_chat = get_chat_entity(chat_list, source_chat_name)
     newspapers_chat = get_chat_entity(chat_list, newspapers_chat_name)
     magazines_chat = get_chat_entity(chat_list, magazines_chat_name)
-    return newspapers_chat, magazines_chat
+    return source_chat, newspapers_chat, magazines_chat
 
 # Telegram - Check sended files
 def get_sended_files(client, newspapers_chat,magazines_chat):
@@ -151,33 +150,51 @@ def send_day_message(tg_client, newspapers_chat):
     tg_client.send_message(newspapers_chat, "# " + str(pretty_print_date(datetime.now())))
 
 
-def send_files(tg_client, newspapers_chat, magazines_chat):
+def check_tmp_folder():
+    if not os.path.isdir(TMP_PATH):
+        os.makedirs(TMP_PATH)
+        print("Created TMP folder")
+
+def download_and_send_file(tg_client, chat,file):
+
+    path = TMP_PATH + file.get_dated_filename() + ".pdf"
+    if not (os.path.exists(path)):
+        print("Downloading " + file.name)
+
+        tg_client.download_file(file.media, path)
+        print("Downloaded. Sending...")
+        tg_client.send_file(chat, path)
+
+        print("Sended " + file.name)
+    else:
+        print(file.name + "already downloaded, so skipped")
+
+def send_files(tg_client, files_to_send,  newspapers_chat, magazines_chat):
     print("\nStart sending files to Telegram...")
-    print(str(len(downloaded_files)) + " files to send")
+    print(str(len(files_to_send)) + " files to send")
     sended_files = []
 
     send_day_message(tg_client, newspapers_chat)
 
-    for file in downloaded_files:
-        if file.filename not in sended_files:
+    for file in files_to_send:
+        if file.name not in sended_files:
             try:
                 if file.type == NEWSPAPER:
-                    tg_client.send_file(newspapers_chat, file.filename, force_document=True)
+                    download_and_send_file(tg_client, newspapers_chat,file)
                 elif file.type == MAGAZINE:
-                    tg_client.send_file(magazines_chat, file.filename, force_document=True)
-                sended_files.append(file.filename)
-                print("Just sended " + file.filename)
+                    download_and_send_file(tg_client, magazines_chat,file)
+                sended_files.append(file.name)
             except Exception:
-                print("Error while sending " + file.filename)
+                print("Error while sending " + file.name)
 
     print("Files sended!\n")
 
-def send_message_to_admin(tg_client):
-    newspapers = str(len(downloaded_files))
+def send_message_to_admin(tg_client, files_to_send):
+    newspapers = str(len(files_to_send))
 
     file_list = []
-    for file in downloaded_files:
-        file_list.append(file.filename)
+    for file in files_to_send:
+        file_list.append(file.name)
 
     tg_client.send_message(admin_alias,"Hello! Your bot here\n" + newspapers + " files sended to Telegram Group:\n " + str(file_list))
 
@@ -197,32 +214,8 @@ def pretty_print_date(date):
 
     return current_date
 
-# Alldebrid & Downloads
-def download(files):
-    print("\nConnecting to AllDebrid\n")
-    alldebrid = Alldebrid()
-    errors = list()
-    ok = 0
-
-    for file in files:
-        http_response = alldebrid.download_link(file.url)
-        file.filename = file.get_dated_filename() + ".pdf"
-        if http_response["status"] != "error":
-            converted_link = http_response["data"]["link"]
-            file.url = converted_link
-
-            while "  " in file.filename:
-                file.filename = file.filename.replace("  "," ")
-
-            download_file(file)
-            downloaded_files.append(file)
-            ok = ok + 1
-        else:
-            errors.append(file.filename)
-    print_results(ok,errors)
-
+# Downloads
 def download_file(file):
-
     if not os.path.isfile(file.filename):
         try:
             if downloads_path != "":
@@ -241,31 +234,31 @@ def open_link_file(path):
 def get_filenames_from_wanted_files(clean_files):
     clean_filenames = []
     for file in clean_files:
-        clean_filenames.append(file.filename.strip())
+        clean_filenames.append(file.name)
     return clean_filenames
 
 
 def remove_files_from_filenames(clean_files, clean_names):
     filtered_clean_files = []
     for file in clean_files:
-        if file.filename in clean_names:
+        if file.name in clean_names:
             filtered_clean_files.append(file)
     return filtered_clean_files
 
 
 def remove_already_sended_files(files_that_we_want, sended_newspapers, sended_magazines):
     print("We want to download " + str(len(files_that_we_want)) + " files")
-    print("Checking for already sended files...")
+    print("Check already sended files...")
     not_filtered_files = len(files_that_we_want)
-    clean_names = get_filenames_from_wanted_files(files_that_we_want)
+    names = get_filenames_from_wanted_files(files_that_we_want)
 
     filtered_clean_names = []
-    for name in clean_names:
+    for name in names:
         if name not in sended_newspapers and name not in sended_magazines:
             filtered_clean_names.append(name)
 
     files_that_we_want = remove_files_from_filenames(files_that_we_want, filtered_clean_names)
-    print((str(not_filtered_files - len(files_that_we_want)) + " files already sended, so we removed them"))
+    print((str(not_filtered_files - len(files_that_we_want)) + " files already sended, removed"))
     return files_that_we_want
 
 def clean_list(files, sended_newspapers, sended_magazines):
@@ -278,10 +271,6 @@ def clean_list(files, sended_newspapers, sended_magazines):
     files_that_we_want = remove_already_sended_files(files_that_we_want, sended_newspapers, sended_magazines)
     return files_that_we_want
 
-# Aux - Messages
-def get_formatted_message(msg, key):
-    return msg[0].replace(key, "")
-
 # Find char for splitting
 def find_separation_char(formatted_msg):
     char = None
@@ -293,47 +282,19 @@ def find_separation_char(formatted_msg):
         char = "/"
     return char
 
-# Format date for building message
-def format_date_from_message(msg):
-    date = None
-    if msg[0].rsplit("-")[1] is not None:
-        date = msg[0].rsplit("-")[1]
-    else:
-        date = msg[0].rsplit("-")
-    return date
-
 # Building message for file
-def build_file_message(msg, type, formatted_msg, date):
-    char = find_separation_char(formatted_msg)
-    title = ""
-    try:
-        title = formatted_msg.rsplit(char)[0]
-        while char in title:
-            title = formatted_msg.rsplit(char)[0]
-    except Exception:
-        print("Error building message" + msg[0])
-
-    if title:
-        for url in msg:
-            if url_domains[0] in url:
-                if (type == MAGAZINE):
-                    date = format_date_from_message(msg)
-                    return Message(type, title, url, date)
-                return Message(type, title, url, pretty_print_date(date))
-
+def build_file_message(file_name, file_type, file_id, date, file_media):
+    return TelegramFile(file_name, file_type, file_id, pretty_print_date(date), file_media)
 
 # Aux - Make decissions
-def we_want(file):
-    filename = file[0].split("-")[0].strip().upper()
+def we_want(filename):
+    filename = filename.split("-")[3].upper()
+
     if filename in newspapers_filter:
         return True, NEWSPAPER
     elif filename in magazines_filter:
         return True, MAGAZINE
     return False, None
-
-def obtain_daily_filename(filename):
-    filename = str(filename + " - " + pretty_print_date(datetime.now()) + ".pdf")
-    return filename
 
 def print_results(ok, errors):
     print("\nDone! " + str(ok - len(errors)) + " files downloaded.")
@@ -344,21 +305,17 @@ def print_results(ok, errors):
 
 # Files maganement
 def remove_pdf_files():
-    for parent, dirnames, filenames in os.walk('.'):
-        for fn in filenames:
-            if fn.lower().endswith('.pdf'):
-                try:
-                    os.remove(os.path.join(fn))
-                except Exception:
-                    print("Error removing file " + fn)
+    files = glob.glob(TMP_PATH + '*')
+    for f in files:
+        try:
+            os.remove(f)
+        except Exception as e:
+            print('Failed to delete %s. Reason: %s' % (f, e))
+
 
 def count_pdf_files():
-    counter = 0
-    for parent, dirnames, filenames in os.walk('.'):
-        for fn in filenames:
-            if fn.lower().endswith('.pdf'):
-                counter = counter + 1
-    return counter
+    files = glob.glob('')
+    return len(files)
 
 # Cleaning methods
 def clean():
@@ -367,54 +324,22 @@ def clean():
         if (count_pdf_files() == 0):
             print("Done! All clean for tomorrow!")
         else:
-            print("Delete error, some files are still in the folder. Please check")
-
-
-def find_pastebin_url_and_hash():
-    pastebin = requests.get(pastebin_url).text
-    regex = r"[-a-zA-Z0-9@:%_\+.~#?&//=]{2,256}\.[a-z]{2,4}\b(\/[-a-zA-Z0-9@:%_\+.~#?&//=]*)?"
-    pastebin_urls = re.findall(regex, pastebin)
-    if 2 == len(pastebin_urls):
-        source_chat_url = telegram_url_prefix + pastebin_urls[1]
-    else:
-        source_chat_url = telegram_url_prefix + pastebin_urls[0]
-    channel_hash = source_chat_url[source_chat_url.rfind('/') + 1:].replace("+","")
-    return source_chat_url, channel_hash
-
-
-def leave_old_channel_and_join_new_one(tg_client, chat_list):
-    for chat in chat_list:
-        if TelegramApi.source_chat_name in chat.name:
-            try:
-                tg_client.delete_dialog(chat.id)
-                time.sleep(2)
-                print("Deleted channel " + chat.name)
-            except Exception:
-                print("Cannot delete channel " + source_chat_name)
-
-    source_chat_url, source_chat_hash = find_pastebin_url_and_hash()
-    updates = tg_client(ImportChatInviteRequest(source_chat_hash))
-    time.sleep(2)
-    print("Joined channel " + updates.chats[0].title)
-    return tg_client.get_entity(updates.chats[0].id)
+            print("Error deleting files, please delete them manually")
 
 
 def main():
     tg_client = start_telegram()
-    newspapers_chat, magazines_chat = find_chat_entities(tg_client)
-    chat_list = tg_client.get_dialogs()
-    source_chat = leave_old_channel_and_join_new_one(tg_client, chat_list)
-    files_to_download = get_links_from_telegram(tg_client, source_chat)
-    if (len(files_to_download) == 0):
+    source_chat, newspapers_chat, magazines_chat = find_chat_entities(tg_client)
+    files_to_send = get_links_from_telegram(tg_client, source_chat)
+    if (len(files_to_send) == 0):
         print("No new files to download. Stopping")
         return;
     sended_newspapers, sended_magazines = get_sended_files(tg_client, newspapers_chat, magazines_chat)
-    files_to_download = clean_list(files_to_download, sended_newspapers, sended_magazines)
+    files_to_send = clean_list(files_to_send, sended_newspapers, sended_magazines)
 
-    if (len(files_to_download) > 0):
-        download(files_to_download)
-        send_files(tg_client, newspapers_chat, magazines_chat)
-        send_message_to_admin(tg_client)
+    if (len(files_to_send) > 0):
+        send_files(tg_client, files_to_send,  newspapers_chat, magazines_chat)
+        send_message_to_admin(tg_client,files_to_send)
         clean()
     else:
         send_not_new_files_message(tg_client)
@@ -422,9 +347,7 @@ def main():
 # General config
 url_domains = TelegramApi.url_domains
 admin_alias = TelegramApi.admin_alias
-downloads_path = AlldebridAPI.downloads_path
-pastebin_url = AlldebridAPI.pastebin_url
-telegram_url_prefix = AlldebridAPI.telegram_url_prefix
+downloads_path = DownloaderAPI.downloads_path
 
 # Telegram
 api_id = TelegramApi.api_id
@@ -438,11 +361,11 @@ source_chat_limit = TelegramApi.source_chat_limit
 # Newspapers chat
 newspapers_chat_name = TelegramApi.newspapers_chat_name
 newspapers_chat_limit = TelegramApi.newspapers_chat_limit
-newspapers_filter = AlldebridAPI.newspapers_filter
+newspapers_filter = DownloaderAPI.newspapers_filter
 
 # Magazines chat
 magazines_chat_name = TelegramApi.magazines_chat_name
 magazines_chat_limit = TelegramApi.magazines_chat_limit
-magazines_filter = AlldebridAPI.magazines_filter
+magazines_filter = DownloaderAPI.magazines_filter
 
 main()
