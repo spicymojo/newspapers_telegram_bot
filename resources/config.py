@@ -1,4 +1,4 @@
-class DownloaderAPI(object):
+class FilesAPI(object):
     downloads_path = ''
     newspapers_filter = [""]
     magazines_filter = [""]
@@ -19,4 +19,10 @@ class TelegramApi(object):
     magazines_chat_name = ''
     magazines_chat_limit = 0
     admin_alias = ''
-    url_domains = ['']
+    admin_message = True
+
+class GmailApi(object):
+    sender_mail_user = ""
+    sender_mail_password = ""
+    admin_mail_user = ""
+    gmail_message = True
