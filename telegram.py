@@ -60,7 +60,7 @@ def append_file_message(file, file_name,file_type, message_date, file_list):
     file_list.append(utils.build_file_message(file_name, file_type, file.media.id, message_date, file.media))
 
 def get_filename_from_id(file_id):
-    file_id = file_id.split("-")[3].upper()
+    file_id = file_id.split("-")[hypen_position].upper()
     return FilesAPI.file_dict[file_id]
 
 def get_links_from_telegram(client, source_chat):
@@ -167,3 +167,6 @@ newspapers_chat_limit = TelegramApi.newspapers_chat_limit
 # Telegram - Magazines chat
 magazines_chat_name = TelegramApi.magazines_chat_name
 magazines_chat_limit = TelegramApi.magazines_chat_limit
+
+# Config - Hypen position
+hypen_position = FilesAPI.hypen_position

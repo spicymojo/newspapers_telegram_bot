@@ -4,6 +4,7 @@ class FilesAPI(object):
     magazines_filter = [""]
     telegram_url_prefix = ""
     file_dict = {}
+    hypen_position = 1
 
 class TelegramApi(object):
     api_id = ''
@@ -22,7 +23,7 @@ class TelegramApi(object):
     admin_message = True
 
 class GmailApi(object):
-    sender_mail_user = ""
-    sender_mail_password = ""
-    admin_mail_user = ""
-    gmail_message = True
+    sender_mail_user = "prensadeivaj@gmail.com"
+    sender_mail_password = "qffzzlfbklkdigkf"
+    admin_mail_user = "javiersantanagodoy@gmail.com"
+    gmail_message = False

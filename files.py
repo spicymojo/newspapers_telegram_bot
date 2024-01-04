@@ -57,7 +57,10 @@ def clean():
 
 # Decission making
 def we_want(filename):
-    filename = filename.split("-")[3].upper()
+    try:
+        filename = filename.split("-")[hypen_position].upper()
+    except:
+        print("Can't process file " + filename)
 
     if filename in newspapers_filter:
         return True, NEWSPAPER
@@ -107,3 +110,4 @@ def clean_list(files, sended_newspapers, sended_magazines):
 newspapers_filter = FilesAPI.newspapers_filter
 magazines_filter = FilesAPI.magazines_filter
 downloads_path = FilesAPI.downloads_path
+hypen_position = FilesAPI.hyphen_position
