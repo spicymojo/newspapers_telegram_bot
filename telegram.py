@@ -169,4 +169,4 @@ magazines_chat_name = TelegramApi.magazines_chat_name
 magazines_chat_limit = TelegramApi.magazines_chat_limit
 
 # Config - Hypen position
-hypen_position = FilesAPI.hypen_position
+hypen_position = FilesAPI.hyphen_position
