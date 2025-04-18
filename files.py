@@ -1,3 +1,4 @@
+import json
 from resources.config import FilesAPI
 import requests, os, glob
 
@@ -58,7 +59,7 @@ def clean():
 # Decission making
 def we_want(filename):
     try:
-        filename = filename.split("-")[hypen_position].upper()
+        filename = filename.split("-")[hyphen_position].upper()
     except:
         print("Can't process file " + filename)
 
@@ -107,7 +108,9 @@ def clean_list(files, sended_newspapers, sended_magazines):
     files_that_we_want = remove_already_sended_files(files_that_we_want, sended_newspapers, sended_magazines)
     return files_that_we_want
 
+
+# Preparing variables
 newspapers_filter = FilesAPI.newspapers_filter
 magazines_filter = FilesAPI.magazines_filter
 downloads_path = FilesAPI.downloads_path
-hypen_position = FilesAPI.hyphen_position
+hyphen_position = FilesAPI.hyphen_position

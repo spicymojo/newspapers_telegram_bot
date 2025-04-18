@@ -1,11 +1,8 @@
 from getpass import getpass
 from datetime import datetime
-from resources.config import FilesAPI, TelegramApi
+from resources.config import FilesAPI, TelegramApi, Chat
 from telethon.sync import TelegramClient
-
-import os
-import utils
-import files
+import utils, files
 
 errors = ""
 NEWSPAPER = 'NEWSPAPER'
@@ -60,14 +57,14 @@ def append_file_message(file, file_name,file_type, message_date, file_list):
     file_list.append(utils.build_file_message(file_name, file_type, file.media.id, message_date, file.media))
 
 def get_filename_from_id(file_id):
-    file_id = file_id.split("-")[hypen_position].upper()
+    file_id = file_id.split("-")[hyphen_position].upper()
     return FilesAPI.file_dict[file_id]
 
 def get_links_from_telegram(client, source_chat):
     print("Getting links from Telegram...")
     telegram_files = []
 
-    messages_list = get_telegram_messages(client, source_chat, source_chat_limit)
+    messages_list = get_telegram_messages(client, source_chat, chat_limit)
 
     for message in messages_list:
         try:
@@ -94,10 +91,14 @@ def get_chat_entity(chat_list, chat_name):
 # Find chats
 def find_chat_entities(client):
     chat_list = client.iter_dialogs()
-    source_chat = get_chat_entity(chat_list, source_chat_name)
+
+    source_chats = {
+        "source_chat_1": get_chat_entity(chat_list, Chat.chat_1_name)
+    }
+
     newspapers_chat = get_chat_entity(chat_list, newspapers_chat_name)
     magazines_chat = get_chat_entity(chat_list, magazines_chat_name)
-    return source_chat, newspapers_chat, magazines_chat
+    return source_chats, newspapers_chat, magazines_chat
 
 # Check sended files
 def get_sended_files(client, newspapers_chat,magazines_chat):
@@ -156,17 +157,16 @@ api_id = TelegramApi.api_id
 api_hash = TelegramApi.api_hash
 phone_number = TelegramApi.phone_number
 
-# Telegram - Source chat
-source_chat_name = TelegramApi.source_chat_name
-source_chat_limit = TelegramApi.source_chat_limit
-
 # Telegram - Newspapers chat
 newspapers_chat_name = TelegramApi.newspapers_chat_name
-newspapers_chat_limit = TelegramApi.newspapers_chat_limit
+newspapers_chat_limit = int(TelegramApi.newspapers_chat_limit)
 
 # Telegram - Magazines chat
 magazines_chat_name = TelegramApi.magazines_chat_name
-magazines_chat_limit = TelegramApi.magazines_chat_limit
+magazines_chat_limit = int(TelegramApi.newspapers_chat_limit)
 
 # Config - Hypen position
-hypen_position = FilesAPI.hyphen_position
+hyphen_position = FilesAPI.hyphen_position
+
+# Chat - Chat limit
+chat_limit = int(Chat.chat_limit)

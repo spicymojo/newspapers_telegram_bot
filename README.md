@@ -1,4 +1,4 @@
-# alldebrid_downloader
+# newspapers_telegram_bot
 
 Python 3 script that scrapes a Telegram group that shares newspapers and magazines, downloads the files using Alldebrid to convert the links and send the downloaded files to another Telegram group. Who said leecher?
 
@@ -10,11 +10,8 @@ Needed Python Packages:
 1. Install the dependencies
 2. Fill the config file (Not self-explanatory parameters explained) :
 
-AllDebrid API
 | Parameter | Description |
 | ------ | ------ |
-| agent | Agent name for Alldebrid |
-| key | Api-Key for Alldebrid |
 | downloads_path | Path for downloads, could be blank on a Raspberry Pi |
 | newspapers_filter | Newspapers that you want to download  (List, uppercase) |
 | magazines_filter | Magazines that you want to download (List, uppercase)|
