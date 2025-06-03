@@ -1,3 +1,4 @@
+import os
 from getpass import getpass
 from datetime import datetime
 from resources.config import FilesAPI, TelegramApi, Chat
@@ -18,12 +19,13 @@ def get_telegram_messages(client, chat, messages_limit):
     return client.get_messages(chat, limit=messages_limit)
 
 def get_sended_files_from_today(client, chat, messages_limit):
-    filtered_newspapers = []
+    filtered_files = []
+
     messages = client.get_messages(chat, limit=messages_limit)
     for message in messages:
         if (utils.is_today(message.date) and message.file is not None):
-            filtered_newspapers.append(message.file.name.split(",")[0].strip())
-    return filtered_newspapers
+            filtered_files.append(message.file.name.split(",")[0].strip())
+    return filtered_files
 
 def wait_for_code(client):
     code = input('Enter the code you just received: ')
@@ -145,11 +147,17 @@ def download_and_send_file(tg_client, chat,file):
 
         tg_client.download_file(file.media, path)
         print("Downloaded. Sending...")
+
+        # Recheck if the file was already sent by another server
+        today_messages = get_sended_files_from_today(tg_client, chat, chat_limit)
+        if file.name in today_messages:
+            print(file.name + " already sent, skipping")
+            return
         tg_client.send_file(chat, path)
 
         print("Sended " + file.name)
     else:
-        print(file.name + "already downloaded, so skipped")
+        print(file.name + " already downloaded, so skipped")
 
 
 # Telegram
