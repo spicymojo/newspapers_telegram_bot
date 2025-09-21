@@ -1,9 +1,8 @@
-import os
 from getpass import getpass
 from datetime import datetime
 from resources.config import FilesAPI, TelegramApi, Chat
 from telethon.sync import TelegramClient
-import utils, files
+import os, utils, files
 
 errors = ""
 NEWSPAPER = 'NEWSPAPER'
@@ -16,7 +15,10 @@ def start_telegram():
     return client
 
 def get_telegram_messages(client, chat, messages_limit):
-    return client.get_messages(chat, limit=messages_limit)
+    messages = client.get_messages(chat, limit=messages_limit)
+    today_messages = [msg for msg in messages if utils.is_today(msg.date)]
+    today_pdf_messages = [msg for msg in today_messages if files.is_pdf(msg)]
+    return today_pdf_messages
 
 def get_sended_files_from_today(client, chat, messages_limit):
     filtered_files = []
@@ -62,26 +64,28 @@ def get_filename_from_id(file_id):
     file_id = file_id.split("-")[hyphen_position].upper()
     return FilesAPI.file_dict[file_id]
 
-def get_links_from_telegram(client, source_chat):
-    print("Getting links from Telegram...")
+def get_links_from_telegram(client, source_chat) -> list:
+    """
+    Fetch and process today's PDF messages from a Telegram chat.
+    Returns a list of file message data.
+    """
     telegram_files = []
-
     messages_list = get_telegram_messages(client, source_chat, chat_limit)
 
     for message in messages_list:
+        file = getattr(message, "file", None)
+        if not file or not hasattr(file, "name"):
+            continue
         try:
-            if (utils.is_today(message.date) and files.is_pdf(message.file)):
-                file = message.file
-                wanted, file_type = files.we_want(file.name)
-                if wanted:
-                    filename = get_filename_from_id(file.name)
-                    append_file_message(file, filename,file_type, message.date, telegram_files)
-        except TypeError as e:
-            print("Error processing one of the messages:\n " + str(e))
+            wanted, file_type = files.we_want(file.name)
+            if wanted:
+                filename = get_filename_from_id(file.name)
+                append_file_message(file, filename, file_type, message.date, telegram_files)
+        except Exception as e:
+            print(f"Error processing message: {e}")
 
-    # Return the messages data list
-    if (len(telegram_files)) != 0:
-        print(str(len(telegram_files)) + " newspapers and magazines found")
+    if telegram_files:
+        print(f"{len(telegram_files)} newspapers and magazines found")
     return telegram_files
 
 # Chat entities
@@ -103,12 +107,14 @@ def find_chat_entities(client):
     return source_chats, newspapers_chat, magazines_chat
 
 # Check sended files
-def get_sended_files(client, newspapers_chat,magazines_chat):
-    print("Obtaining already sended files...")
-    telegram_sended_newspapers = get_sended_files_from_today(client, newspapers_chat, newspapers_chat_limit)
-    telegram_sended_magazines = get_sended_files_from_today(client, magazines_chat, magazines_chat_limit)
-
-    return telegram_sended_newspapers, telegram_sended_magazines
+def send_day_message(tg_client: TelegramClient, newspapers_chat) -> None:
+    """
+    Sends a day marker message to the newspapers chat if not already sent today.
+    """
+    messages = tg_client.get_messages(newspapers_chat, limit=newspapers_chat_limit)
+    if any(utils.is_today(message.date) and "#" in getattr(message, "message", "") for message in messages):
+        return
+    tg_client.send_message(newspapers_chat, "# " + utils.pretty_print_date(datetime.now()))
 
 # Send files and messages
 def send_day_message(tg_client, newspapers_chat):
@@ -119,32 +125,47 @@ def send_day_message(tg_client, newspapers_chat):
     tg_client.send_message(newspapers_chat, "# " + utils.pretty_print_date(datetime.now()))
 
 # Download and send files
-def send_files(tg_client, files_to_send,  newspapers_chat, magazines_chat):
+def send_files(
+    tg_client: TelegramClient,
+    files_to_send: list,
+    newspapers_chat,
+    magazines_chat
+) -> None:
+    """
+    Send files to the appropriate Telegram chats, avoiding duplicates.
+    """
     print("\nStart sending files to Telegram...")
-    print(str(len(files_to_send)) + " files to send")
-    sended_files = []
+    print(f"{len(files_to_send)} files to send")
+    sended_files = set()
 
     send_day_message(tg_client, newspapers_chat)
 
     for file in files_to_send:
-        if file.name not in sended_files:
-            try:
-                if file.type == NEWSPAPER:
-                    download_and_send_file(tg_client, newspapers_chat,file)
-                elif file.type == MAGAZINE:
-                    download_and_send_file(tg_client, magazines_chat,file)
-                sended_files.append(file.name)
-            except Exception:
-                print("Error while sending " + file.name)
+        if file.name in sended_files:
+            continue
+        try:
+            if file.type == NEWSPAPER:
+                download_and_send_file(tg_client, newspapers_chat, file)
+            elif file.type == MAGAZINE:
+                download_and_send_file(tg_client, magazines_chat, file)
+            sended_files.add(file.name)
+        except Exception as e:
+            print(f"Error while sending {file.name}: {e}")
 
-    print("Files sended!\n")
+    print("Files sent!\n")
 
-def download_and_send_file(tg_client, chat,file):
-
+def download_and_send_file(
+    tg_client: TelegramClient,
+    chat,
+    file
+) -> None:
+    """
+    Download a file from Telegram and send it to the specified chat if not already sent today.
+    Skips download and send if the file exists or was already sent.
+    """
     path = files.TMP_PATH + file.get_dated_filename() + ".pdf"
-    if not (os.path.exists(path)):
+    if not os.path.exists(path):
         print("Downloading " + file.name)
-
         tg_client.download_file(file.media, path)
         print("Downloaded. Sending...")
 
@@ -154,7 +175,6 @@ def download_and_send_file(tg_client, chat,file):
             print(file.name + " already sent, skipping")
             return
         tg_client.send_file(chat, path)
-
         print("Sended " + file.name)
     else:
         print(file.name + " already downloaded, so skipped")

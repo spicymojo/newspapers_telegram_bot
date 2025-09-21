@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import pytz
+
 class TelegramFile:
 
     def __init__(self, name, type,id,date, media):
@@ -22,8 +24,11 @@ class TelegramFile:
         return self.get_message()
 
 # Date methods
-def is_today(date):
-    return date.day == datetime.now().day
+def is_today(dt, tz_name='Atlantic/Canary'):
+    tz = pytz.timezone(tz_name)
+    now = datetime.now(tz)
+    dt_local = dt.astimezone(tz)
+    return now.date() == dt_local.date()
 
 def pretty_print_date(date):
     months = ("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")

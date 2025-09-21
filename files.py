@@ -1,4 +1,3 @@
-import json
 from resources.config import FilesAPI
 import requests, os, glob
 
@@ -7,9 +6,9 @@ NEWSPAPER = 'NEWSPAPER'
 MAGAZINE = 'MAGAZINE'
 
 # Aux
-def is_pdf(file):
+def is_pdf(msg):
     try:
-        return file.media.mime_type == "application/pdf"
+        return msg.file.media.mime_type == "application/pdf"
     except AttributeError:
         return False
 

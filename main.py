@@ -1,5 +1,4 @@
 import notifications, telegram, files
-from dotenv import load_dotenv
 
 def main():
     tg_client = telegram.start_telegram()
@@ -12,8 +11,9 @@ def main():
             print("No new files to download. Stopping")
             return;
 
-        sended_newspapers, sended_magazines = telegram.get_sended_files(tg_client, newspapers_chat, magazines_chat)
-        files_to_send = files.clean_list(files_to_send, sended_newspapers, sended_magazines)
+        sent_newspapers = telegram.get_sended_files_from_today(tg_client, newspapers_chat, messages_limit=20)
+        sent_magazines = telegram.get_sended_files_from_today(tg_client, magazines_chat, messages_limit=20)
+        files_to_send = files.clean_list(files_to_send, sent_newspapers, sent_magazines)
 
         if (len(files_to_send) > 0):
             telegram.send_files(tg_client, files_to_send,  newspapers_chat, magazines_chat)
