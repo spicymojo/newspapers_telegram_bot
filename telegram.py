@@ -80,7 +80,7 @@ def get_links_from_telegram(client, source_chat) -> list:
             wanted, file_type = files.we_want(file.name)
             if wanted:
                 filename = get_filename_from_id(file.name)
-                append_file_message(file, filename, file_type, message.date, telegram_files)
+                append_file_message(file, filename, file_type, datetime.now(), telegram_files)
         except Exception as e:
             print(f"Error processing message: {e}")
 
